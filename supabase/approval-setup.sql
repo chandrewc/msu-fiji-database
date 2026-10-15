@@ -23,7 +23,7 @@ begin
   if length(requested_name) < 2 or length(requested_name) > 120
      or requested_username !~ '^[a-z0-9_]{3,32}$'
      or requested_type not in ('active','graduate') then
-    raise exception 'Invalid brother application information';
+    -- Dashboard-created admin users may not have signup metadata.\n    -- They are not given a member record until manually bootstrapped.\n    if new.raw_user_meta_data->>'requested_username' is null then\n      return new;\n    end if;\n    raise exception 'Invalid brother application information';
   end if;
   insert into public.members(user_id,username,full_name,member_type,role,approved,rejected)
   values(new.id,requested_username,requested_name,requested_type,'member',false,false);
