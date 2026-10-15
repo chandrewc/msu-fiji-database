@@ -30,9 +30,56 @@ const fields=[['full_name','Full name'],['graduation_year','Graduation year','nu
 for(const [key,label,type] of fields){const l=elem('label',label);const i=document.createElement(type==='textarea'?'textarea':'input');i.id='profile-'+key;if(type&&type!=='textarea')i.type=type;if(key==='graduation_year'){i.min=1848;i.max=2100}i.maxLength=key==='bio'?1500:250;l.append(i);$('profile-fields').append(l)}
 function fillProfile(m){for(const [key] of fields)$('profile-'+key).value=m[key]??'';for(const k of ['open_to_mentoring','open_to_internships'])$(k).checked=!!m[k]}
 $('profileform').addEventListener('submit',async e=>{e.preventDefault();const payload={};for(const [k] of fields)payload[k]=$('profile-'+k).value.trim()||null;payload.graduation_year=payload.graduation_year?Number(payload.graduation_year):null;for(const k of ['open_to_mentoring','open_to_internships'])payload[k]=$(k).checked;const {data,error}=await db.from('members').update(payload).eq('user_id',current.user_id).select('user_id').single();msg(error?'Could not save profile: '+error.message:data?'Profile saved.':'Profile was not updated.');if(!error)await refreshData()});
+let managedBrothers=[];
+async function loadManaged(){
+ const {data,error}=await db.from('members').select('*').eq('approved',true).order('full_name');
+ if(error){msg('Unable to load brothers: '+error.message);return}
+ managedBrothers=data||[];
+ const select=$('manage-member');
+ select.replaceChildren(new Option('Select a brother',''));
+ for(const brother of managedBrothers)select.add(new Option(brother.full_name+(brother.role==='admin'?' (admin)':''),brother.user_id));
+ $('manageform').hidden=true;
+}
+$('manage-member').onchange=()=>{
+ const brother=managedBrothers.find(m=>m.user_id===$('manage-member').value);
+ $('manageform').hidden=!brother;
+ if(!brother)return;
+ const area=$('manage-fields');area.replaceChildren();
+ for(const [key,label,type] of fields){
+  const wrapper=elem('label',label);
+  const input=document.createElement(type==='textarea'?'textarea':'input');
+  if(type&&type!=='textarea')input.type=type;
+  input.dataset.field=key;input.value=brother[key]??'';
+  wrapper.append(input);area.append(wrapper);
+ }
+ for(const key of ['open_to_mentoring','open_to_internships']){
+  const wrapper=elem('label',key==='open_to_mentoring'?'Open to mentoring':'Open to internships');
+  const input=document.createElement('input');input.type='checkbox';input.dataset.field=key;input.checked=!!brother[key];
+  wrapper.append(input);area.append(wrapper);
+ }
+ $('toggle-admin').textContent=brother.role==='admin'?'Remove administrator':'Make administrator';
+ $('toggle-admin').disabled=brother.user_id===current.user_id;
+};
+$('manageform').onsubmit=async event=>{
+ event.preventDefault();
+ const changes={};
+ for(const input of $('manage-fields').querySelectorAll('[data-field]'))changes[input.dataset.field]=input.type==='checkbox'?input.checked:(input.value.trim()||null);
+ const {error}=await db.rpc('admin_update_brother',{p_user_id:$('manage-member').value,p_changes:changes});
+ msg(error?'Could not save: '+error.message:'Brother profile updated.');
+ if(!error){await loadManaged();await refreshData()}
+};
+$('toggle-admin').onclick=async()=>{
+ const brother=managedBrothers.find(m=>m.user_id===$('manage-member').value);
+ if(!brother||brother.user_id===current.user_id)return;
+ const makeAdmin=brother.role!=='admin';
+ if(!confirm((makeAdmin?'Grant administrator access to ':'Remove administrator access from ')+brother.full_name+'?'))return;
+ const {error}=await db.rpc('admin_set_brother_role',{p_user_id:brother.user_id,p_make_admin:makeAdmin});
+ msg(error?'Could not update role: '+error.message:'Administrator role updated.');
+ if(!error)await loadManaged();
+};
 async function loadApplications(){const t=$('applications');const {data,error}=await db.from('members').select('user_id,full_name,username,member_type,created_at').eq('approved',false).eq('rejected',false).order('created_at');t.replaceChildren();if(error){clear(t,'Unable to load applications.');return}if(!data?.length){clear(t,'No pending applications.');return}for(const m of data){const c=elem('div');c.className='panel';c.append(elem('strong',m.full_name),elem('p','@'+m.username+' · '+m.member_type));for(const [label,approve] of [['Approve',true],['Reject',false]]){const b=elem('button',label);if(!approve)b.className='secondary';b.style.marginRight='8px';b.onclick=async()=>{if(!confirm((approve?'Approve ':'Reject ')+m.full_name+'?'))return;b.disabled=true;const {error}=await db.rpc('review_brother_application',{p_user_id:m.user_id,p_approve:approve});msg(error?'Review failed: '+error.message:'Application reviewed.');await loadApplications()};c.append(b)}t.append(c)}}
 async function refreshData(){const {data,error}=await db.from('members').select('*').eq('user_id',current.user_id).single();if(!error)fillProfile(data);const d=await db.from('members').select('user_id,full_name,member_type,graduation_year,pledge_class,hometown,city,state,employer,job_title,industry,linkedin_url,email_contact,phone_contact,open_to_mentoring,open_to_internships').eq('approved',true).order('full_name');if(d.error)msg('Directory unavailable: '+d.error.message);else{members=d.data||[];renderMembers()}await loadNews()}
-async function refresh(){const {data:{user}}=await db.auth.getUser();$('signout').hidden=!user;$('navigation').hidden=true;$('auth').hidden=!!user;$('app').hidden=true;$('pending').hidden=true;if(!user){current=null;return}const {data:me,error}=await db.from('members').select('*').eq('user_id',user.id).maybeSingle();if(error||!me){msg('Unable to verify membership. Contact chapter leadership.');$('pending').hidden=false;return}current=me;if(!me.approved){$('pending').hidden=false;$('pending').querySelector('p').textContent=me.rejected?'Your request was not approved. Contact chapter leadership.':'Your account is awaiting chapter approval.';return}isAdmin=me.role==='admin';$('admin-tab').hidden=!isAdmin;$('navigation').hidden=false;$('app').hidden=false;await refreshData();if(isAdmin)await loadApplications();go(['home','directory','newsletters','announcements','profile','admin'].includes(location.hash.slice(1))?location.hash.slice(1):'home')}
+async function refresh(){const {data:{user}}=await db.auth.getUser();$('signout').hidden=!user;$('navigation').hidden=true;$('auth').hidden=!!user;$('app').hidden=true;$('pending').hidden=true;if(!user){current=null;return}const {data:me,error}=await db.from('members').select('*').eq('user_id',user.id).maybeSingle();if(error||!me){msg('Unable to verify membership. Contact chapter leadership.');$('pending').hidden=false;return}current=me;if(!me.approved){$('pending').hidden=false;$('pending').querySelector('p').textContent=me.rejected?'Your request was not approved. Contact chapter leadership.':'Your account is awaiting chapter approval.';return}isAdmin=me.role==='admin';$('admin-tab').hidden=!isAdmin;$('navigation').hidden=false;$('app').hidden=false;await refreshData();if(isAdmin){await loadApplications();await loadManaged();}go(['home','directory','newsletters','announcements','profile','admin'].includes(location.hash.slice(1))?location.hash.slice(1):'home')}
 $('search').addEventListener('input',renderMembers);
 $('show-signup').onclick=e=>{e.preventDefault();$('login').hidden=true;$('signup').hidden=false};$('back-login').onclick=()=>{$('signup').hidden=true;$('login').hidden=false};
 $('signupform').onsubmit=async e=>{e.preventDefault();const b=e.target.querySelector('button');b.disabled=true;const {error}=await db.auth.signUp({email:$('signup-email').value.trim(),password:$('signup-password').value,options:{emailRedirectTo:location.origin+location.pathname,data:{full_name:$('signup-name').value.trim(),requested_username:$('signup-username').value.trim(),requested_member_type:$('signup-type').value}}});b.disabled=false;msg(error?'Signup failed: '+error.message:'Request submitted. Check your email, then wait for chapter approval.');if(!error){$('signup').hidden=true;$('login').hidden=false}};
