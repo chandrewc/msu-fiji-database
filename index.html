@@ -79,6 +79,56 @@ footer{font-size:.78rem;letter-spacing:.06em;border-top:1px solid #e5ddd5;margin
 @media(max-width:850px){.head{min-height:auto;gap:15px;flex-wrap:wrap}.head nav{order:3;width:100%;margin-left:0;overflow-x:auto;flex-wrap:nowrap;padding:5px 0 0}.head nav button{flex-shrink:0}.account-area{margin-left:auto}main{padding-top:24px}.hero{min-height:300px}}
 @media(max-width:540px){.head{padding:12px 16px}.brand img{height:46px;width:46px}.brand{font-size:.72rem;gap:9px}.brand small{font-size:.53rem}.hero{padding:38px 28px;min-height:320px}.hero:after{inset:10px}.hero h1{font-size:clamp(2.8rem,12vw,4.4rem)}.panel{padding:22px}.directory-card{min-height:unset}.brother-tabs{display:flex}.brother-tabs button{min-width:0;padding:12px 7px;font-size:.82rem}.grid{gap:14px}nav button{padding:10px 12px}}
 
+
+/* Mobile-first refinements for members: directory, newsletters, forms and navigation */
+html,body{max-width:100%;overflow-x:clip}
+img,iframe,video{max-width:100%}
+button,a,input,select,textarea{touch-action:manipulation}
+button{min-height:44px}
+input,select,textarea{min-height:44px;font-size:16px}
+.grid,.field-grid,.panel,.directory-card,.admin-menu{min-width:0}
+.panel,.directory-card{overflow-wrap:anywhere}
+@media(max-width:850px){
+ .head{display:flex;align-items:center;gap:10px}
+ .head nav{order:3;width:100%;flex-wrap:wrap;overflow:visible;gap:6px;padding:10px 0 0;border-top:1px solid #eee4e2}
+ .head nav button{flex:1 1 auto;white-space:nowrap;min-height:44px;padding:10px 13px}
+ .head .account-area{order:2;margin-left:auto}
+ .head .brand{flex:0 1 auto;min-width:0}
+ .head .brand span{overflow-wrap:anywhere}
+ .admin-menu{grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))}
+}
+@media(max-width:600px){
+ main{padding:18px 14px 55px}
+ .head{padding:10px 14px}
+ .head nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .head nav button{width:100%;font-size:.82rem;padding:10px 7px;white-space:normal}
+ .head nav button:last-child:nth-child(odd){grid-column:1/-1}
+ .brand img{height:44px;width:44px}
+ .brand{font-size:.7rem;letter-spacing:.02em}
+ .brand small{letter-spacing:.04em;font-size:.52rem}
+ .account-menu{right:0;max-width:calc(100vw - 28px)}
+ .hero{min-height:0;padding:35px 22px}
+ .hero h1{font-size:clamp(2.35rem,10vw,3.6rem);overflow-wrap:break-word}
+ .hero:before{font-size:230px}
+ .panel{padding:19px 16px}
+ .grid,.field-grid,#newsletter-list,#page-announcements #announcement-list{grid-template-columns:minmax(0,1fr)}
+ .admin-menu{grid-template-columns:minmax(0,1fr)}
+ .admin-choice{min-height:0;padding:18px}
+ .actions{gap:8px}
+ .actions button{flex:1 1 135px;white-space:normal}
+ .brother-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+ .brother-tabs button{min-width:0;min-height:44px;white-space:normal}
+ .brother-heading{gap:10px}
+ .brother-heading h3{overflow-wrap:anywhere}
+ .modal-backdrop{padding:9px;align-items:center}
+ .modal-card{padding:20px 15px;max-height:calc(100dvh - 20px);width:100%}
+ .modal-close{margin:-8px -4px 8px 8px}
+ .pdf-modal-card{max-height:calc(100dvh - 20px)}
+ .pdf-modal-card iframe{height:65dvh}
+ .status:not([hidden]){left:10px;right:10px;bottom:10px;max-width:none}
+}
+@media(max-width:360px){.head nav button{font-size:.75rem}.brand small{font-size:.46rem}}
+
 </style></head><body>
 <header><div class="head"><a class="brand" href="#home" id="brand" aria-label="Go to home"><img src="Phi%20Gamma%20Delta%20Logo%20Full%20Color%20%28Digital%29%20-%20Icon.png" alt="Phi Gamma Delta crest" onerror="this.style.display='none'"><span>PHI GAMMA DELTA<small>SIGMA MU · BROTHER NETWORK</small></span></a><nav id="navigation" hidden><button data-page="home">Home</button><button data-page="directory">Brothers</button><button data-page="newsletters">Newsletters</button><button data-page="announcements">Chapter News</button><button data-page="admin" id="admin-tab" hidden>Admin</button></nav><div id="account-area" class="account-area" hidden><button id="account-toggle" class="account-toggle" type="button" aria-label="Account menu" aria-expanded="false"><span id="account-avatar" class="avatar avatar-placeholder">?</span></button><div id="account-menu" class="account-menu" hidden><button type="button" id="account-profile">My Profile</button><button type="button" id="signout">Sign out</button></div></div></div></header>
 <main>
