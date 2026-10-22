@@ -190,6 +190,33 @@ $('donation-amount').addEventListener('change',()=>{const custom=$('donation-amo
 function go(page){if(!current?.approved)return;if(page==='directory'){refreshDirectory();if(brotherCategory==='businesses')loadBusinesses()}closeAccountMenu();if(page==='admin'&&!isAdmin&&!adminPermissions.size)return;if(page==='admin')openAdminSection(null);document.querySelectorAll('.page').forEach(e=>e.hidden=e.id!=='page-'+page);document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-current',b.dataset.page===page?'page':'false'));location.hash=page;window.scrollTo(0,0)}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-goto],[data-page]');if(b)go(b.dataset.goto||b.dataset.page)});$('brand').addEventListener('click',e=>{e.preventDefault();if(current?.approved)go('home');else{location.hash='home';window.scrollTo(0,0)}});
 
+async function loadAlumniTracker(){
+ const people=await db.from('members').select('user_id,full_name').eq('approved',true).eq('member_type','graduate').order('full_name');
+ if(people.error)return msg(people.error.message);
+ const names=new Map((people.data||[]).map(p=>[p.user_id,p.full_name]));
+ for(const sel of document.querySelectorAll('.alumni-person')){sel.replaceChildren(new Option('Select graduate brother',''));for(const p of people.data||[])sel.add(new Option(p.full_name,p.user_id))}
+ const contacts=await db.from('alumni_contacts').select('*').order('contact_date',{ascending:false}).limit(200);
+ const gifts=await db.from('alumni_donations').select('*').order('donation_date',{ascending:false}).limit(200);
+ if(contacts.error||gifts.error)return msg((contacts.error||gifts.error).message);
+ const total=(gifts.data||[]).reduce((n,d)=>n+Number(d.amount),0);
+ document.getElementById('alumni-summary').textContent='Latest 200 gifts total: USD '+total.toFixed(2);
+ const cl=document.getElementById('alumni-contact-list');cl.replaceChildren();
+ for(const c of contacts.data||[]){const card=elem('article');card.className='panel';card.append(elem('strong',(names.get(c.alumnus_id)||'Alumnus')+' / '+c.contact_date+' / '+c.contact_type),elem('p',c.summary));if(c.follow_up_date)card.append(elem('p','Follow up: '+c.follow_up_date));cl.append(card)}
+ const dl=document.getElementById('alumni-donation-list');dl.replaceChildren();
+ for(const d of gifts.data||[]){const card=elem('article');card.className='panel';card.append(elem('strong',(names.get(d.alumnus_id)||'Alumnus')+' / USD '+Number(d.amount).toFixed(2)+' / '+d.donation_date),elem('p',[d.method,d.designation,d.notes].filter(Boolean).join(' / ')));dl.append(card)}
+}
+for(const [id,table] of [['alumni-contact-form','alumni_contacts'],['alumni-donation-form','alumni_donations']]){
+ document.getElementById(id).addEventListener('submit',async e=>{
+  e.preventDefault();if(!canAdmin('alumni'))return;
+  const form=e.currentTarget,record=Object.fromEntries(new FormData(form));
+  for(const key of Object.keys(record))if(record[key]==='')record[key]=null;
+  if(table==='alumni_donations')record.amount=Number(record.amount);
+  const button=form.querySelector('button');button.disabled=true;
+  const result=await db.from(table).insert(record);button.disabled=false;
+  if(result.error)return msg('Save failed: '+result.error.message);
+  form.reset();msg('Record saved.');await loadAlumniTracker();
+ });
+}
 let permissionMembers=[],permissionRows=[];
 async function loadPermissionMembers(){const select=$('permission-member');const [{data:people,error},{data:rows,error:pe}]=await Promise.all([db.from('members').select('user_id,full_name,role').eq('approved',true).order('full_name'),db.from('member_admin_permissions').select('user_id,permission')]);if(error||pe)return $('permission-status').textContent=(error||pe).message;permissionMembers=people||[];permissionRows=rows||[];select.replaceChildren(new Option('Select a brother',''));for(const p of permissionMembers)select.add(new Option(p.full_name+' ('+p.role+')',p.user_id));renderPermissionEditor()}
 function renderPermissionEditor(){const user=permissionMembers.find(m=>m.user_id===$('permission-member').value),area=$('permission-options');area.replaceChildren();$('permission-save').disabled=!user||user.role==='super_admin'||user.user_id===current?.user_id;$('permission-full-admin').hidden=current?.role!=='super_admin'||!user||user.role==='super_admin'||user.user_id===current?.user_id;$('permission-full-admin').textContent=user?.role==='admin'?'Remove Full Administrator':'Grant Full Administrator';$('permission-status').textContent=user?.role==='super_admin'?'Protected Super Administrator account.':user?.role==='admin'?'Full Administrator has access to all tools.':'Choose which tools this brother may access.';if(!user)return;for(const key of permissionKeys){const label=elem('label');const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.value=key;checkbox.checked=user.role==='admin'||permissionRows.some(p=>p.user_id===user.user_id&&p.permission===key);checkbox.disabled=user.role==='admin'||user.role==='super_admin';label.append(checkbox,document.createTextNode(' '+adminTitles[key]));area.append(label)}}
