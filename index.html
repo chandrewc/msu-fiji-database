@@ -244,6 +244,7 @@ $('crm-one-form').addEventListener('submit',async event=>{
  event.preventDefault();if(!crmSelected||!canAdmin('alumni'))return;
  const form=event.currentTarget,values=Object.fromEntries(new FormData(form));
  const button=form.querySelector('button[type="submit"]');button.disabled=true;$('crm-save-status').textContent='Saving…';
+  $('crm-save-status').dataset.saveVersion='crm-refresh-v2';
  try{
   const status={alumnus_id:crmSelected,relationship_status:values.relationship_status,priority:values.priority,next_action:values.next_action||null,notes:values.notes||null,updated_at:new Date().toISOString()};
   const old=crmStatuses.find(x=>x.alumnus_id===crmSelected);
@@ -252,7 +253,8 @@ $('crm-one-form').addEventListener('submit',async event=>{
   if(values.contact_date){const result=await db.from('alumni_contacts').insert({alumnus_id:crmSelected,contact_date:values.contact_date,contact_type:values.contact_type,summary:values.summary||'Outreach logged',follow_up_date:values.follow_up_date||null});if(result.error)throw result.error}
   else if(values.follow_up_date){const result=await db.from('alumni_contacts').insert({alumnus_id:crmSelected,contact_date:new Date().toISOString().slice(0,10),contact_type:'Other',summary:values.summary||'Follow-up scheduled (no outreach logged)',follow_up_date:values.follow_up_date});if(result.error)throw result.error}
   if(values.amount){const result=await db.from('alumni_donations').insert({alumnus_id:crmSelected,amount:Number(values.amount),donation_date:new Date().toISOString().slice(0,10),method:'Other'});if(result.error)throw result.error}
-  $('crm-save-status').textContent='Saved';await loadAlumniTracker();
+  $('crm-save-status').textContent='Saved successfully.';
+  try{await loadAlumniTracker()}catch(refreshError){console.error('CRM refresh failed after successful save',refreshError);$('crm-save-status').textContent='Saved successfully. Refresh the page to see the updated table.'}
  }catch(error){$('crm-save-status').textContent='Could not save: '+error.message}
  finally{button.disabled=false}
 });
