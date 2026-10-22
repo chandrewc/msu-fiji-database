@@ -233,15 +233,8 @@ async function loadAlumniTracker(){
  const err=people.error||contacts.error||gifts.error||statuses.error;if(err)return msg('CRM could not load: '+err.message);
  crmPeople=people.data||[];crmContacts=contacts.data||[];crmGifts=gifts.data||[];crmStatuses=statuses.data||[];
  const picker=$('crm-person'),previous=crmSelected;picker.replaceChildren(new Option('Choose a brother…',''));for(const p of crmPeople)picker.add(new Option(p.full_name,p.user_id));picker.value=previous||'';
- const names=new Map(crmPeople.map(p=>[p.user_id,p.full_name]));
-  $('alumni-summary').textContent=crmPeople.length+' alumni | '+crmContacts.length+' logged contacts | '+crmGifts.length+' gifts | '+crmMoney(crmGifts.reduce((n,d)=>n+Number(d.amount),0))+' recorded giving';
+ $('alumni-summary').textContent=crmPeople.length+' alumni | '+crmContacts.length+' logged contacts | '+crmGifts.length+' gifts | '+crmMoney(crmGifts.reduce((n,d)=>n+Number(d.amount),0))+' recorded giving';
  renderCrmTable();
- const cl=$('alumni-contact-list');cl.replaceChildren();
- for(const c of crmContacts.slice(0,40)){const card=elem('article');card.className='panel';card.append(elem('strong',(names.get(c.alumnus_id)||'Alumnus')+' / '+c.contact_date+' / '+c.contact_type),elem('p',c.summary));if(c.follow_up_date)card.append(elem('p','Follow up: '+c.follow_up_date));cl.append(card)}
- if(!crmContacts.length)cl.append(elem('p','No contacts yet.'));
- const dl=$('alumni-donation-list');dl.replaceChildren();
- for(const d of crmGifts.slice(0,40)){const card=elem('article');card.className='panel';card.append(elem('strong',(names.get(d.alumnus_id)||'Alumnus')+' / '+crmMoney(d.amount)+' / '+d.donation_date),elem('p',[d.method,d.designation,d.notes].filter(Boolean).join(' / ')));dl.append(card)}
- if(!crmGifts.length)dl.append(elem('p','No gifts recorded.'));
  if(crmSelected)openCrmDetail(crmSelected);
 }
 for(const id of ['crm-search','crm-status-filter','crm-followup-filter'])$(id).addEventListener('input',renderCrmTable);
