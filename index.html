@@ -334,7 +334,7 @@ async function loadManaged(){
 }
 $('manage-member').onchange=()=>{
  const brother=managedBrothers.find(m=>m.user_id===$('manage-member').value);
- $('manageform').hidden=!brother||brother.role==='super_admin'&&current.role!=='super_admin';$('toggle-admin').hidden=current.role!=='super_admin'||brother?.role==='super_admin';
+ $('manageform').hidden=!brother||brother.role==='super_admin'&&current.role!=='super_admin';
  if(!brother)return;
  const area=$('manage-fields');area.replaceChildren();
  for(const [key,label,type] of fields){
@@ -348,8 +348,7 @@ $('manage-member').onchange=()=>{
   const input=document.createElement('input');input.type='checkbox';input.dataset.field=key;input.checked=!!brother[key];
   wrapper.append(input);area.append(wrapper);
  }
- $('toggle-admin').textContent=brother.role==='admin'?'Remove administrator':'Make administrator';
- $('toggle-admin').disabled=brother.user_id===current.user_id;
+ // Administrator roles are managed in the permissions panel below.
 };
 $('manageform').onsubmit=async event=>{
  event.preventDefault();
