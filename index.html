@@ -156,6 +156,120 @@ input,select,textarea{min-height:44px;font-size:16px}
 #latest-newsletter .panel>p:not(.published-body){font-size:.85rem;margin:0 0 10px;flex-shrink:0}
 #latest-newsletter .panel>button{margin-top:auto;flex-shrink:0;background:#f2ece9;color:#5d1725;width:100%}
 .home-connected>p{width:100%;border-top:1px solid #eee6df;padding-top:12px;margin:0 0 18px}
+
+/* Sitewide spacing and readable, content-sized layouts. */
+:root{--space-card:20px}
+body{line-height:1.5}
+h2,h3{line-height:1.3}
+p{line-height:1.6}
+.panel>h2,.panel>h3{margin-bottom:12px}
+.panel>p{margin:0 0 16px}
+.panel>:last-child{margin-bottom:0}
+.grid{gap:var(--space-card)}
+.grid>.panel{margin-bottom:0}
+.page>.eyebrow{margin-bottom:8px}
+.page>h1{margin:0 0 16px}
+.page>p{margin:0 0 28px;max-width:72ch}
+.section-title{margin-bottom:24px}
+.section-title h1{margin:0 0 16px}
+.section-title p{margin:0;max-width:72ch}
+.panel .eyebrow{margin-bottom:8px}
+#page-home>.grid{margin-bottom:24px}
+.home-summary>h2{margin-bottom:16px}
+#page-home>.panel{margin-top:0!important}
+#home-businesses{margin:18px 0}
+#home-businesses>p{margin:0}
+#home-businesses>.panel{box-shadow:none;background:#faf7f3;padding:20px}
+#page-home>.panel>button{margin-top:4px}
+#page-directory .brother-tabs{margin-bottom:18px}
+#page-directory #search{margin-bottom:12px}
+#count{margin:0}
+#results{align-items:start}
+#results>.directory-card{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;min-height:170px}
+.directory-card .brother-heading{margin-bottom:12px;min-width:0}
+.brother-heading>div:last-child{min-width:0}
+.directory-card .brother-heading p{margin:0}
+.directory-card>p{margin:0 0 8px}
+.directory-card>:last-child{margin-bottom:0}
+#page-announcements>h1{margin-bottom:24px}
+#page-announcements #announcement-list{display:flex;flex-direction:column;gap:20px}
+#announcement-list>.panel{width:100%;height:auto}
+#announcement-list .published-body,#current-newsletter .published-body,#newsletter-list .published-body{white-space:pre-line;line-height:1.6;max-width:78ch}
+#announcement-list .panel>p:last-child,#current-newsletter .panel>p:not(.published-body),#newsletter-list .panel>p:not(.published-body){font-size:.85rem;color:#85777a}
+#announcement-list .panel>h3,#current-newsletter .panel>h3,#newsletter-list .panel>h3{margin:0 0 12px}
+.newsletter-group{margin:28px 0}
+.newsletter-group>h2{padding-bottom:12px;margin-bottom:18px}
+#current-newsletter>.panel{margin:0}
+#newsletter-list{align-items:start}
+#newsletter-list .panel>button{margin-top:4px}
+form label{line-height:1.45}
+form input,form select,form textarea{margin-top:8px;margin-bottom:18px}
+.field-grid{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:20px;row-gap:0}
+.field-grid>label{display:flex;flex-direction:column;justify-content:flex-end}
+.field-grid input,.field-grid select,.field-grid textarea{min-width:0}
+input[type=checkbox]{display:inline-block;width:18px;height:18px;min-height:18px;accent-color:#5d1725;margin:0 10px 0 0;vertical-align:middle;flex-shrink:0}
+#permission-options{row-gap:14px;margin:20px 0}
+#permission-options>label,#manage-fields>label:has(input[type=checkbox]){display:block}
+.preference-card{align-items:flex-start}
+.preference-card input[type=checkbox]{margin:3px 0 0}
+.photo-controls{padding-bottom:20px;border-bottom:1px solid #eee6df;gap:16px}
+.photo-controls label{min-width:min(220px,100%)}
+.profile-preferences{margin:6px 0 22px}
+.admin-menu{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.admin-choice{min-height:165px;padding:22px;gap:10px;justify-content:flex-start}
+.admin-choice strong{line-height:1.35}
+.admin-choice small{font-weight:500;line-height:1.5}
+.admin-workspace-top{margin:24px 0 18px}
+.admin-section>form+h3{margin-top:28px;padding-top:22px;border-top:1px solid #eee6df}
+.admin-section .panel{box-shadow:none}
+.admin-log-entry p{margin:6px 0}
+.crm-toolbar input,.crm-toolbar select{margin:0}
+#crm-detail .field-grid{row-gap:0}
+#crm-history:has(#crm-history-list:empty){display:none}
+.donation-layout{align-items:start;gap:24px}
+.donation-intro{margin-bottom:32px}
+.donation-symbol{margin-bottom:16px}
+.donation-purpose-item{margin:22px 0}
+.donation-purpose-item:last-child{margin-bottom:0}
+.donation-panel form>label{margin-top:18px}
+.donation-panel form>label:first-child{margin-top:0}
+.donation-count{margin-top:-10px!important}
+.modal-card p{margin:0 0 14px}
+.modal-card .brother-heading{margin-bottom:20px}
+.pdf-modal-card .muted{margin-top:14px}
+p:empty{display:none}
+button:focus-visible,a:focus-visible{outline:3px solid #96556a;outline-offset:3px}
+footer{padding:24px 20px;line-height:1.6}
+@media(max-width:1000px){
+ .head{gap:16px}
+ .head nav{gap:2px}
+ .head nav button{padding:10px 12px}
+}
+@media(min-width:601px) and (max-width:1050px){
+ #page-home>.grid{grid-template-columns:minmax(0,1fr)}
+ #page-home>.grid>.home-summary{height:440px;min-height:440px}
+}
+@media(max-width:850px){
+ .admin-menu{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:600px){
+ :root{--space-card:16px}
+ main{padding-bottom:36px}
+ .section-title{margin-bottom:20px}
+ .page>p{margin-bottom:22px}
+ .field-grid{grid-template-columns:minmax(0,1fr)}
+ .admin-menu{grid-template-columns:minmax(0,1fr);gap:12px}
+ .admin-choice{min-height:0;gap:8px}
+ #results>.directory-card{min-height:0}
+ .home-summary>h2{min-height:0}
+ #page-home>.grid>.home-summary{height:440px;min-height:440px}
+ .newsletter-group{margin:24px 0}
+ .donation-layout{gap:18px}
+ .donation-intro{margin-bottom:24px}
+ .photo-controls{align-items:flex-start}
+ .photo-controls>button{width:100%}
+ .modal-card{padding:22px 18px}
+}
 </style></head><body>
 <header><div class="head"><a class="brand" href="#home" id="brand" aria-label="Go to home"><img src="Phi%20Gamma%20Delta%20Logo%20Full%20Color%20%28Digital%29%20-%20Icon.png" alt="Phi Gamma Delta crest" onerror="this.style.display='none'"><span>PHI GAMMA DELTA<small>SIGMA MU · BROTHER NETWORK</small></span></a><nav id="navigation" hidden><button data-page="home">Home</button><button data-page="directory">Brothers</button><button data-page="newsletters">Newsletters</button><button data-page="announcements">Chapter News</button><button data-page="donate">Support Us</button><button data-page="admin" id="admin-tab" hidden>Admin</button></nav><div id="account-area" class="account-area" hidden><button id="account-toggle" class="account-toggle" type="button" aria-label="Account menu" aria-expanded="false"><span id="account-avatar" class="avatar avatar-placeholder">?</span></button><div id="account-menu" class="account-menu" hidden><button type="button" id="account-profile">My Profile</button><button type="button" id="signout">Sign out</button></div></div></div></header>
 <main>
