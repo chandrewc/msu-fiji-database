@@ -17,6 +17,8 @@ Deno.serve(async(req:Request)=>{
   if(authError||!user.user)return reply({error:'Please sign in again.'},401);
   const {data:permitted,error:permError}=await member.rpc('has_admin_permission',{p_permission:'newsletter'});
   if(permError||!permitted)return reply({error:'Newsletter administrator permission required.'},403);
+  // Temporary website-only publishing: block every send, retry and test path.
+  return reply({error:'Automatic newsletter emails are temporarily paused. Publish on the website only.',paused:true},503);
   const input=await req.json();
   const key=Deno.env.get('RESEND_MARKETING_API_KEY');
   if(input.action==='status')return reply({ready:!!key});
