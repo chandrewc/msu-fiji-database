@@ -20,6 +20,14 @@ Deno.serve(async(req:Request)=>{
   const key=Deno.env.get('RESEND_NEWSLETTER_API_KEY');
   if(input.action==='status')return reply({ready:!!key});
   if(!key)return reply({error:'Newsletter email sending is not configured yet.'},503);
+  if(input.action==='test'){
+   const response=await fetch('https://api.resend.com/emails/batch',{
+    method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},
+    body:JSON.stringify([emailFor({title:'Newsletter connection test',body:'This verifies the newsletter connection. No chapter recipients were contacted.',issue_date:new Date().toISOString().slice(0,10),pdf_url:null},'delivered@resend.dev')]),signal:AbortSignal.timeout(20000)
+   });
+   const result=await response.json();
+   return response.ok&&result.data?.length===1?reply({ready:true,test_accepted:true}):reply({error:'Resend could not accept the connection test. Check the newsletter key, domain and sending limits.'},502);
+  }
   const id=String(input.newsletter_id||'');
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return reply({error:'Invalid newsletter identifier.'},400);
   if(input.action==='publish'){
