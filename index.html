@@ -300,7 +300,7 @@ footer{padding:24px 20px;line-height:1.6}
 .newsletter-management-row p{margin:5px 0 0;font-size:.85rem}
 .newsletter-delete{flex-shrink:0}
 @media(max-width:600px){.newsletter-management-row{align-items:flex-start;flex-direction:column;gap:12px}.newsletter-delete{width:100%}}
-</style></head><body>
+.donation-history-row{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 0;border-bottom:1px solid #eee6df}.donation-history-row:last-child{border-bottom:0}.donation-history-row span{font-size:.9rem;color:#706568}#donation-status{line-height:1.5;margin:16px 0}</style></head><body>
 <header><div class="head"><a class="brand" href="#home" id="brand" aria-label="Go to home"><img src="Phi%20Gamma%20Delta%20Logo%20Full%20Color%20%28Digital%29%20-%20Icon.png" alt="Phi Gamma Delta crest" onerror="this.style.display='none'"><span>PHI GAMMA DELTA<small>SIGMA MU · BROTHER NETWORK</small></span></a><nav id="navigation" hidden><button data-page="home">Home</button><button data-page="directory">Brothers</button><button data-page="newsletters">Newsletters</button><button data-page="announcements">Chapter News</button><button data-page="donate">Support Us</button><button data-page="admin" id="admin-tab" hidden>Admin</button></nav><div id="account-area" class="account-area" hidden><button id="account-toggle" class="account-toggle" type="button" aria-label="Account menu" aria-expanded="false"><span id="account-avatar" class="avatar avatar-placeholder">?</span></button><div id="account-menu" class="account-menu" hidden><button type="button" id="account-profile">My Profile</button><button type="button" id="signout">Sign out</button></div></div></div></header>
 <main>
 <section id="auth"><div class="hero"><div class="eyebrow">Sigma Mu · Mississippi State University</div><h1>Not for College Days Alone.</h1><p>Stay connected with Sigma Mu brothers, chapter news, and opportunities throughout your fraternity journey and beyond.</p></div><div class="grid"><section class="panel" id="login"><h2>Brother sign in</h2><p>Sign in to the private Sigma Mu network.</p><form id="loginform"><label>Email<input id="email" type="email" required autocomplete="email"></label><label>Password<input id="password" type="password" required autocomplete="current-password"></label><div class="actions"><button>Sign in</button><button type="button" class="secondary" id="reset">Reset password</button></div></form><p>New here? <a href="#" id="show-signup">Request an account</a></p></section><section class="panel" id="signup" hidden><h2>Request access</h2><p>All new accounts require chapter approval.</p><form id="signupform"><label>Full name<input id="signup-name" maxlength="120" required></label><label>Username<input id="signup-username" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]+" required></label><label>Email<input id="signup-email" type="email" required></label><label>Phone number<input id="signup-phone" type="tel" autocomplete="tel" maxlength="30" placeholder="(662) 555-0123" required></label><label>Brother status<select id="signup-type"><option value="graduate">Graduate Brother</option><option value="active">Active Brother</option></select></label><label>Password<input id="signup-password" type="password" minlength="12" required></label><div class="actions"><button>Submit request</button><button type="button" class="secondary" id="back-login">Back</button></div></form></section></div></section>
@@ -318,8 +318,8 @@ footer{padding:24px 20px;line-height:1.6}
 <label for="donation-amount">Contribution amount</label><select id="donation-amount" required><option value="">Select amount</option><option value="25">$25</option><option value="50">$50</option><option value="100">$100</option><option value="250">$250</option><option value="500">$500</option><option value="custom">Other amount</option></select>
 <div id="donation-custom-wrap" hidden><label for="donation-custom">Custom amount (USD)</label><input id="donation-custom" type="number" min="1" max="100000" step="0.01" inputmode="decimal" placeholder="Enter an amount"></div>
 <label for="donation-purpose">What is your contribution for? <span class="donation-optional">(optional)</span></label><textarea id="donation-purpose" maxlength="500" placeholder="For example: scholarships, house maintenance, or a specific event"></textarea><p class="muted donation-count"><span id="donation-characters">0</span>/500 characters</p>
-<div class="donation-pending"><strong>Online contributions are not yet enabled.</strong><p>Secure payment processing will be available after the chapter connects a verified payment account that deposits into its bank account. No payment will be collected on this page yet.</p></div>
-<button type="submit" id="donation-continue" disabled>Continue to secure payment — coming soon</button>
+<div class="donation-pending"><strong>Test donations only</strong><p>Checkout is in test mode. No real money will be collected.</p></div><p id="donation-status" role="status" aria-live="polite"></p>
+<button type="submit" id="donation-continue" disabled>Continue to secure checkout</button>
 </form></section>
 <aside class="panel donation-panel"><h2>Where Your Money Goes</h2><p>Support for the chapter and its members.</p>
 <div class="donation-purpose-item"><h3>Scholarships &amp; Education</h3><p>Supporting academic achievement and educational opportunities.</p></div>
@@ -327,7 +327,7 @@ footer{padding:24px 20px;line-height:1.6}
 
 <div class="donation-purpose-item"><h3>Brother Development</h3><p>Investing in leadership and opportunities for members.</p></div>
 
-</aside></div></section>
+</aside></div><section class="panel" id="donation-history-panel" style="margin-top:24px" hidden><h2>Your recent test donations</h2><div id="donation-history"></div></section></section>
 <section id="page-profile" class="page" hidden><div class="eyebrow">Your brotherhood profile</div><h1>My Profile</h1><p>Only you can edit these details. Your account role and approval status cannot be changed here.</p><form id="profileform" class="panel"><div class="photo-controls"><div id="my-avatar" class="avatar avatar-placeholder" aria-label="Your profile picture">?</div><label>Profile picture (JPG, PNG or WebP)<input id="avatar-file" type="file" accept="image/jpeg,image/png,image/webp"></label><button type="button" id="upload-avatar">Upload photo</button></div><div class="field-grid" id="profile-fields"></div><fieldset class="profile-preferences"><legend>Brotherhood connections</legend><p class="muted">Choose how you would like other brothers to connect with you.</p><div class="preference-options"><label class="preference-card"><input type="checkbox" id="open_to_mentoring"><span class="preference-copy"><strong>Open to mentoring</strong><small>Let brothers know you are available to offer guidance and advice.</small></span></label><label class="preference-card"><input type="checkbox" id="open_to_internships"><span class="preference-copy"><strong>Open to internship inquiries</strong><small>Welcome conversations about internships and career opportunities.</small></span></label></div></fieldset><button>Save profile</button></form></section>
 <section id="page-admin" class="page" hidden>
 <div class="eyebrow">Chapter administration</div><h1>Administrator</h1><p>Select a task to open its workspace. Only one section is shown at a time.</p>
@@ -353,8 +353,67 @@ import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2
 const db=createClient('https://tzrmtdwsspobcbucwtrj.supabase.co','sb_publishable_57LLRCD8y-LWGQ4yVTL7bg__HF20OFF');
 const $=id=>document.getElementById(id);let current=null,members=[],isAdmin=false,adminPermissions=new Set();const permissionKeys=['invite','requests','brothers','newsletter','news','businesses','sitepermissions','activity','alumni'];function canAdmin(k){return isAdmin||adminPermissions.has(k)||(k==='businesses'&&adminPermissions.has('brothers'))}
 function msg(t){const box=$('message');box.textContent=t||'';box.hidden=!t;if(t){clearTimeout(msg.timeout);msg.timeout=setTimeout(()=>{box.hidden=true;box.textContent=''},4500)}}function elem(tag,text){const e=document.createElement(tag);e.textContent=text??'';return e}function clear(t,text){t.replaceChildren(elem('p',text))}function safeLink(url){try{const u=new URL(url);return u.protocol==='https:'?u.href:null}catch{return null}}
-$('donation-amount').addEventListener('change',()=>{const custom=$('donation-amount').value==='custom';$('donation-custom-wrap').hidden=!custom;$('donation-custom').required=custom});$('donation-purpose').addEventListener('input',()=>{$('donation-characters').textContent=String($('donation-purpose').value.length)});$('donation-form').addEventListener('submit',e=>{e.preventDefault();msg('Online contributions are not enabled yet. No payment has been collected.')});
-function go(page){if(!current?.approved)return;if(page==='directory'){refreshDirectory();if(brotherCategory==='businesses')loadBusinesses()}closeAccountMenu();if(page==='admin'&&!isAdmin&&!adminPermissions.size)return;if(page==='admin')openAdminSection(null);document.querySelectorAll('.page').forEach(e=>e.hidden=e.id!=='page-'+page);document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-current',b.dataset.page===page?'page':'false'));location.hash=page;window.scrollTo(0,0)}
+let donationCheckoutReady=false, donationRequestId=null, donationPoll=null;
+const donationStatusLabels={pending:'Confirming payment',paid:'Paid',failed:'Payment failed',expired:'Checkout expired',partially_refunded:'Partially refunded',refunded:'Refunded'};
+function donationMessage(text){$('donation-status').textContent=text;}
+async function donationFunction(body){
+ const {data,error}=await db.functions.invoke('create-donation-checkout',{body});
+ if(error){let detail;try{detail=await error.context?.json()}catch{}throw Error(detail?.error||'Unable to reach secure checkout. Please try again.');}
+ if(data?.error)throw Error(data.error);
+ return data;
+}
+async function loadDonationHistory(){
+ const area=$('donation-history');area.replaceChildren();
+ const {data,error}=await db.from('stripe_donations').select('id,amount_cents,status,created_at,refunded_cents').eq('member_id',current.user_id).order('created_at',{ascending:false}).limit(5);
+ if(error){clear(area,'Donation history is temporarily unavailable.');return;}
+ if(!data?.length){clear(area,'Your test donations will appear here.');return;}
+ for(const donation of data){const row=elem('div');row.className='donation-history-row';row.append(elem('strong',new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(donation.amount_cents/100)),elem('span',(donationStatusLabels[donation.status]||donation.status)+' · Test · '+new Date(donation.created_at).toLocaleDateString()));area.append(row);}
+}
+async function confirmReturnedDonation(id,attempt=0){
+ if(!current||$('page-donate').hidden)return;
+ const {data,error}=await db.from('stripe_donations').select('status,amount_cents').eq('id',id).eq('member_id',current.user_id).maybeSingle();
+ if(error||!data){donationMessage('Unable to confirm this donation yet. Check your donation history or contact chapter leadership.');return;}
+ if(data.status==='pending'){
+  donationMessage('Confirming your test payment with Stripe. No real money is collected.');
+  if(attempt<9)donationPoll=setTimeout(()=>confirmReturnedDonation(id,attempt+1),2000);
+  else donationMessage('Your test payment is still being confirmed. Refresh this page to check again.');
+ }else{
+  donationMessage(data.status==='paid'?'Your test donation is confirmed. No real money was collected.':(donationStatusLabels[data.status]||'Donation updated')+'.');
+  await loadDonationHistory();
+ }
+}
+async function loadDonationState(){
+ clearTimeout(donationPoll);donationCheckoutReady=false;
+ const button=$('donation-continue');button.disabled=true;
+ $('donation-history-panel').hidden=current?.member_type!=='graduate';
+ if(!current?.approved||current.rejected||current.member_type!=='graduate'){
+  donationMessage('Online alumni donations are available to approved graduate brothers.');return;
+ }
+ donationMessage('Checking secure checkout…');
+ try{const status=await donationFunction({action:'status'});donationCheckoutReady=status?.ready===true;donationMessage(donationCheckoutReady?'Choose your donation amount, then continue to Stripe.':'Online donations are being configured. Please check back soon.');}
+ catch(error){donationMessage(error.message);}
+ button.disabled=!donationCheckoutReady;
+ await loadDonationHistory();
+ const params=new URLSearchParams(location.search),id=params.get('donation');
+ if(params.has('donation_cancelled'))donationMessage('Checkout was cancelled. You can start another donation whenever you are ready.');
+ if(id&&/^[0-9a-f-]{36}$/i.test(id))await confirmReturnedDonation(id);
+}
+$('donation-amount').addEventListener('change',()=>{donationRequestId=null;const custom=$('donation-amount').value==='custom';$('donation-custom-wrap').hidden=!custom;$('donation-custom').required=custom;});
+$('donation-form').addEventListener('input',()=>{donationRequestId=null;$('donation-characters').textContent=String($('donation-purpose').value.length);});
+$('donation-form').addEventListener('submit',async event=>{
+ event.preventDefault();if(!donationCheckoutReady)return;
+ const button=$('donation-continue');button.disabled=true;button.textContent='Opening secure checkout…';
+ try{
+  donationRequestId ||= crypto.randomUUID();
+  const amount=$('donation-amount').value==='custom'?$('donation-custom').value:$('donation-amount').value;
+  const result=await donationFunction({amount,purpose:$('donation-purpose').value,request_id:donationRequestId});
+  const checkout=new URL(result?.url);if(checkout.origin!=='https://checkout.stripe.com')throw Error('Secure checkout is unavailable. Try again later.');
+  location.assign(checkout.href);
+ }catch(error){donationMessage(error.message);button.disabled=!donationCheckoutReady;button.textContent='Continue to secure checkout';}
+});
+
+
+function go(page){if(!current?.approved)return;clearTimeout(donationPoll);if(page==='donate')loadDonationState();if(page==='directory'){refreshDirectory();if(brotherCategory==='businesses')loadBusinesses()}closeAccountMenu();if(page==='admin'&&!isAdmin&&!adminPermissions.size)return;if(page==='admin')openAdminSection(null);document.querySelectorAll('.page').forEach(e=>e.hidden=e.id!=='page-'+page);document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-current',b.dataset.page===page?'page':'false'));location.hash=page;window.scrollTo(0,0)}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-goto],[data-page]');if(b)go(b.dataset.goto||b.dataset.page)});$('brand').addEventListener('click',e=>{e.preventDefault();if(current?.approved)go('home');else{location.hash='home';window.scrollTo(0,0)}});
 
 let crmPeople=[],crmContacts=[],crmGifts=[],crmStatuses=[],crmSelected=null;
