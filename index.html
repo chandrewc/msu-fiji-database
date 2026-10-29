@@ -690,7 +690,7 @@ async function retryNewsletterEmails(id,button){
  try{
   const {data,error}=await db.functions.invoke('publish-newsletter',{body:{action:'retry',newsletter_id:id}});
   if(error||data?.error)throw Error(data?.error||'Could not retry emails. Please check Resend and try again.');
-  const finished=await finishNewsletterMarketing(id,data);msg(newsletterEmailLabel(finished.status));
+  const finished=await finishNewsletterMarketing(id,data);$('newsletter-publish-status').textContent='Newsletter email status: '+newsletterEmailLabel(finished.status);msg(newsletterEmailLabel(finished.status));
  }catch(e){msg(e.message)}finally{button.disabled=false;await loadNewsletterEmailStatus()}
 }
 $('newsletterform').addEventListener('input',()=>{newsletterPublishId=null});
