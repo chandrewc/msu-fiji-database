@@ -19,3 +19,8 @@ function request(){return new Request('https://example.test',{method:'POST',head
 test('connection check only reads marketing broadcasts and sends no email',async()=>{let h=handler();assert.equal((await h.run(request())).status,200);assert.deepEqual(h.apis,['/broadcasts?limit=1']);assert.equal(h.inserted(),false);});
 test('marketing remains restricted to newsletter administrators',async()=>{for(const options of [{authorized:false},{permitted:false}]){let h=handler(options);assert.ok((await h.run(request())).status>=400);assert.equal(h.apis.length,0);}});
 test('missing marketing key fails closed without using the transactional key',async()=>{let h=handler({key:''});assert.equal((await h.run(request())).status,503);assert.equal(h.apis.length,0);assert.equal(h.inserted(),false);});
+
+test('broadcast name stays within the provider limit with actual UUID lengths',()=>{
+ const payload=ctx.payload({...sample(),id:'f955ae64-eafd-489b-a796-34d1f902ce6b',newsletter_id:'0252e730-bf83-4b43-9388-ca0a9fdb4b71',segment_id:'segment'});
+ assert.ok(payload.name.length<=70);assert.ok(payload.name.includes('f955ae64-eafd-489b-a796-34d1f902ce6b'));
+});

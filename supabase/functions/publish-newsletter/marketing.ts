@@ -9,13 +9,13 @@ export function marketingApi(key:string,request=fetch,wait=(ms:number)=>new Prom
   const response=await request('https://api.resend.com'+path,{method,headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},...(body!==undefined?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(15000)});
   if(allowMissing&&response.status===404)return null;
   const result=await response.json();
-  if(!response.ok)throw new MarketingError('Resend marketing returned '+response.status+'. Check marketing permissions, contact allowance and Broadcasts in Resend.',response.status);
+  if(!response.ok)throw new MarketingError('Resend '+method+' '+path.split('?')[0]+' returned '+response.status+': '+String(result.message||result.name||'Request rejected').slice(0,220),response.status);
   return result;
  };
 }
 export function broadcastPayload(job:any){
  const email=emailFor(job,'unused@example.com');
- return {name:'Sigma Mu newsletter '+job.newsletter_id+' '+job.id,segment_id:job.segment_id,from:email.from,subject:email.subject,
+ return {name:('Sigma Mu newsletter '+job.id).slice(0,70),segment_id:job.segment_id,from:email.from,subject:email.subject,
   html:email.html.replace('</body>','<p style="text-align:center;font:12px Arial"><a href="{{{RESEND_UNSUBSCRIBE_URL}}}">Unsubscribe from marketing emails</a></p></body>'),
   text:email.text+'\n\nUnsubscribe: {{{RESEND_UNSUBSCRIBE_URL}}}',send:false};
 }
