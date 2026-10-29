@@ -32,7 +32,7 @@ begin
    select distinct lower(trim(coalesce(nullif(trim(m.email_contact),''),u.email))) as email
    from public.members m join auth.users u on u.id=m.user_id
    left join public.newsletter_email_preferences p on p.user_id=m.user_id
-   where m.approved and not m.rejected and m.member_type in ('active','graduate') and coalesce(p.enabled,true)
+   where m.approved and not m.rejected and m.member_type='graduate' and coalesce(p.enabled,true)
   ) addresses where email ~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'
  ) numbered group by batch;
  return new;

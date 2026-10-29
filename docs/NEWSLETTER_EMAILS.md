@@ -2,7 +2,7 @@
 
 Publishing in Admin → Manage Newsletters calls the authenticated `publish-newsletter` Edge Function. It checks `has_admin_permission('newsletter')` and publishes with a stable UUID, then sends private per-recipient emails through Resend's batch API. Sender: Sigma Mu Chapter <notifications@msufiji.com>. Body includes the issue text, optional HTTPS PDF link, archive link, and email preferences link.
 
-Only newly inserted issues are queued. No old newsletters are backfilled. Approved, non-rejected Active and Graduate brothers are included, except members who disable newsletter email in the Newsletters page. Contact email is used when available; otherwise the account email is used. Duplicate email addresses receive one message. Preferences apply to future issues.
+Only newly inserted issues are queued. No old newsletters are backfilled. Approved, non-rejected Graduate brothers are included, except graduates who disable newsletter email in the Newsletters page. Contact email is used when available; otherwise the account email is used. Duplicate email addresses receive one message. Preferences apply to future issues.
 
 A database trigger snapshots immutable batches of at most 100 recipients. Recipient addresses and provider IDs are server-only. Admin status is aggregate counts only. `sent` means accepted by Resend, not proof of inbox delivery; inspect Resend for bounces/delivery. Existing auth SMTP is independent.
 
