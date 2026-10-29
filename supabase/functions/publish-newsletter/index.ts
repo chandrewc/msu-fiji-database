@@ -1,5 +1,6 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.99.1';
-import {emailFor,validateIssue} from './email.ts';
+import {validateIssue} from './email.ts';
+import {marketingApi,processMarketingBatch} from './marketing.ts';
 const allowed=new Set(['https://brothers.msufiji.com','https://chandrewc.github.io']);
 Deno.serve(async(req:Request)=>{
  const origin=req.headers.get('origin')||'';
@@ -17,16 +18,12 @@ Deno.serve(async(req:Request)=>{
   const {data:permitted,error:permError}=await member.rpc('has_admin_permission',{p_permission:'newsletter'});
   if(permError||!permitted)return reply({error:'Newsletter administrator permission required.'},403);
   const input=await req.json();
-  const key=Deno.env.get('RESEND_NEWSLETTER_API_KEY');
+  const key=Deno.env.get('RESEND_MARKETING_API_KEY');
   if(input.action==='status')return reply({ready:!!key});
   if(!key)return reply({error:'Newsletter email sending is not configured yet.'},503);
   if(input.action==='test'){
-   const response=await fetch('https://api.resend.com/emails/batch',{
-    method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},
-    body:JSON.stringify([emailFor({title:'Newsletter connection test',body:'This verifies the newsletter connection. No chapter recipients were contacted.',issue_date:new Date().toISOString().slice(0,10),pdf_url:null},'delivered@resend.dev')]),signal:AbortSignal.timeout(20000)
-   });
-   const result=await response.json();
-   return response.ok&&result.data?.length===1?reply({ready:true,test_accepted:true}):reply({error:'Resend could not accept the connection test. Check the newsletter key, domain and sending limits.'},502);
+   const result=await marketingApi(key)('/broadcasts?limit=1');
+   return Array.isArray(result.data)?reply({ready:true,marketing_ready:true}):reply({error:'Marketing access could not be verified.'},502);
   }
   const id=String(input.newsletter_id||'');
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return reply({error:'Invalid newsletter identifier.'},400);
@@ -40,28 +37,19 @@ Deno.serve(async(req:Request)=>{
    }
   }else if(input.action!=='retry')return reply({error:'Unknown action.'},400);
   const admin=createClient(url,service,{auth:{persistSession:false}});
-  // Each immutable batch has its own idempotency key. Concurrent requests claim different batches.
+  const api=marketingApi(key);
   const deadline=Date.now()+75000;
-  for(let n=0;n<20 && Date.now()<deadline;n++){
+  for(let n=0;n<20 && Date.now()<deadline-20000;n++){
    const {data:jobs,error:claimError}=await admin.rpc('claim_newsletter_email_batch',{p_newsletter_id:id});
-   if(claimError)throw Error('Email queue is unavailable.');
+   if(claimError)throw Error('Marketing queue is unavailable.');
    if(!jobs?.length)break;
    const job=jobs[0];
-   try{
-    const response=await fetch('https://api.resend.com/emails/batch',{
-     method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json','Idempotency-Key':'newsletter-batch/'+job.id},
-     body:JSON.stringify(job.recipients.map((r:any)=>emailFor(job,r.email))),signal:AbortSignal.timeout(20000)
-    });
-    const result=await response.json();
-    if(!response.ok)throw Error('Email provider returned '+response.status+'. Retry pending emails after checking Resend.');
-    if(!Array.isArray(result.data)||result.data.length!==job.recipients.length)throw Error('Email provider response needs review.');
-    const {error:saveError}=await admin.from('newsletter_email_batches').update({status:'sent',sent_at:new Date().toISOString(),provider_ids:result.data,claimed_at:null}).eq('id',job.id).eq('status','sending');
-    if(saveError)throw Error('Email acceptance could not be recorded.');
-   }catch(e){
-    await admin.from('newsletter_email_batches').update({status:'failed',last_error:String(e.message).slice(0,300),claimed_at:null}).eq('id',job.id).eq('status','sending');
-    break;
-   }
-   await new Promise(resolve=>setTimeout(resolve,650));
+   const save=async(changes:any)=>{
+    const {data,error}=await admin.from('newsletter_email_batches').update(changes).eq('id',job.id).eq('status','sending').select('id');
+    if(error||!data?.length)throw Error('Could not save marketing campaign progress.');
+   };
+   try{if(!await processMarketingBatch(job,api,save,deadline))break;}
+   catch(e){await save({status:'failed',last_error:String(e.message).slice(0,300),claimed_at:null});break;}
   }
   const {data:statuses,error:statusError}=await member.rpc('newsletter_email_status');
   if(statusError)throw Error('Newsletter published, but email status is unavailable.');
