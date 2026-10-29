@@ -47,3 +47,9 @@ test('provider failure preserves an explicit retryable batch',async()=>{
  const h=handler({job:{...sample,id:'batch-test',recipients:[{email:'recipient@example.com'}]},providerOk:false});
  await h.run(request());assert.equal(h.updates[0].status,'failed');assert.equal(h.fetches.length,1);
 });
+
+test('connection check uses only Resend test inbox and never publishes',async()=>{
+ const h=handler();const response=await h.run(request({action:'test'}));
+ assert.equal(response.status,200);assert.equal(h.inserts.length,0);
+ assert.deepEqual(JSON.parse(h.fetches[0].options.body)[0].to,['delivered@resend.dev']);
+});
