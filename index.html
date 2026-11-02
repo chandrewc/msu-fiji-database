@@ -467,8 +467,11 @@ function renderCrmHistory(id){
   card.append(del);target.append(card);
  }
 }
+function resetCrmSelection(){
+ crmSelected=null;$('crm-person').value='';$('crm-form-fields').disabled=true;$('crm-one-form').reset();$('crm-detail-contact').textContent='';$('crm-history-list').replaceChildren();$('crm-save-status').textContent='';
+}
 function openCrmDetail(id,options={}){
- crmSelected=id;const p=crmRowsData().find(x=>x.user_id===id);if(!p)return;
+ const p=crmRowsData().find(x=>x.user_id===id);if(!p){resetCrmSelection();return}crmSelected=id;
  $('crm-detail').hidden=false;$('crm-person').value=id;$('crm-form-fields').disabled=false;$('crm-detail-title').textContent='Add or update alumni information';
  const form=$('crm-one-form');
  if(!options.preserveForm){
@@ -483,17 +486,22 @@ function openCrmDetail(id,options={}){
 }
 async function loadAlumniTracker(options={}){
  const [people,contacts,gifts,statuses]=await Promise.all([
- db.from('members').select('user_id,full_name,graduation_year,employer,job_title,city,state,email_contact,phone_contact').eq('approved',true).eq('member_type','graduate').order('full_name'),
+ db.from('members').select('user_id,full_name,graduation_year,employer,job_title,city,state,email_contact,phone_contact').eq('approved',true).eq('member_type','graduate').is('deactivated_at',null).order('full_name'),
  db.from('alumni_contacts').select('*').order('contact_date',{ascending:false}).range(0,9999),
  db.from('alumni_donations').select('*').order('donation_date',{ascending:false}).range(0,9999),
  db.from('alumni_crm_status').select('*')
  ]);
- const err=people.error||contacts.error||gifts.error||statuses.error;if(err)return msg('CRM could not load: '+err.message);
- crmPeople=people.data||[];crmContacts=contacts.data||[];crmGifts=gifts.data||[];crmStatuses=statuses.data||[];
+ const err=people.error||contacts.error||gifts.error||statuses.error;
+ if(err){crmPeople=[];crmContacts=[];crmGifts=[];crmStatuses=[];resetCrmSelection();$('crm-person').replaceChildren(new Option('Choose a brother…',''));$('alumni-summary').textContent='CRM unavailable. Please reload to try again.';renderCrmTable();return msg('CRM could not load: '+err.message)}
+ crmPeople=people.data||[];
+ const visibleIds=new Set(crmPeople.map(p=>p.user_id));
+ crmContacts=(contacts.data||[]).filter(r=>visibleIds.has(r.alumnus_id));
+ crmGifts=(gifts.data||[]).filter(r=>visibleIds.has(r.alumnus_id));
+ crmStatuses=(statuses.data||[]).filter(r=>visibleIds.has(r.alumnus_id));
  const picker=$('crm-person'),previous=crmSelected;picker.replaceChildren(new Option('Choose a brother…',''));for(const p of crmPeople)picker.add(new Option(p.full_name,p.user_id));picker.value=previous||'';
  $('alumni-summary').textContent=crmPeople.length+' alumni | '+crmContacts.length+' logged contacts | '+crmGifts.length+' gifts | '+crmMoney(crmGifts.reduce((n,d)=>n+Number(d.amount),0))+' recorded giving';
  renderCrmTable();
- if(crmSelected){const selected=crmSelected;openCrmDetail(selected,{preserveForm:!!options.preserveForm,noScroll:true})}
+ if(crmSelected&&visibleIds.has(crmSelected)){const selected=crmSelected;openCrmDetail(selected,{preserveForm:!!options.preserveForm,noScroll:true})}else resetCrmSelection();
 }
 for(const id of ['crm-search','crm-status-filter','crm-followup-filter'])$(id).addEventListener('input',renderCrmTable);
 $('crm-person').addEventListener('change',()=>{if($('crm-person').value)openCrmDetail($('crm-person').value);else{crmSelected=null;$('crm-form-fields').disabled=true;$('crm-one-form').reset();$('crm-detail-contact').textContent=''}});
@@ -646,7 +654,7 @@ $('manage-access-toggle').onclick=async()=>{
  const button=$('manage-access-toggle'),status=$('manage-access-message');button.disabled=true;status.textContent=enabled?'Restoring access…':'Deactivating account…';
  try{
   const {error}=await db.rpc('admin_set_brother_access',{p_user_id:targetId,p_enabled:enabled});if(error)throw error;
-  await refreshDirectory();await loadManaged();if(isAdmin)await loadPermissionMembers();
+  await refreshDirectory();await loadManaged();if(isAdmin)await loadPermissionMembers();if(canAdmin('alumni'))await loadAlumniTracker();
   msg(brother.full_name+(enabled?' has been reactivated.':' has been deactivated.'));
  }catch(error){status.textContent='Could not change access: '+error.message;button.disabled=false;}
 };
