@@ -324,9 +324,10 @@ footer{padding:24px 20px;line-height:1.6}
 <section class="panel donation-panel"><div class="eyebrow">Chapter Support</div><h2>Make a Contribution</h2><p>Choose an amount to support the chapter.</p>
 <form id="donation-form">
 <label for="donation-amount">Contribution amount</label><select id="donation-amount" required><option value="">Select amount</option><option value="25">$25</option><option value="50">$50</option><option value="100">$100</option><option value="250">$250</option><option value="500">$500</option><option value="custom">Other amount</option></select>
-<div id="donation-custom-wrap" hidden><label for="donation-custom">Custom amount (USD)</label><input id="donation-custom" type="number" min="1" max="100000" step="0.01" inputmode="decimal" placeholder="Enter an amount"></div>
+<div id="donation-custom-wrap" hidden><label for="donation-custom">Custom amount (USD)</label><input id="donation-custom" type="number" min="1" max="100000" step="0.01" inputmode="decimal" placeholder="Enter an amount" aria-describedby="donation-amount-help"></div>
+<p class="muted" id="donation-amount-help">One-time contribution in USD · $1–$100,000.</p>
 <label for="donation-purpose">What is your contribution for? <span class="donation-optional">(optional)</span></label><textarea id="donation-purpose" maxlength="500" placeholder="For example: scholarships, house maintenance, or a specific event"></textarea><p class="muted donation-count"><span id="donation-characters">0</span>/500 characters</p>
-<div class="donation-pending" id="donation-mode-notice"><strong>Secure Stripe checkout</strong><p>Checking payment availability…</p></div><p id="donation-status" role="status" aria-live="polite"></p>
+<div class="donation-pending" id="donation-mode-notice"><strong>Online donations coming soon</strong><p>We are finishing our secure Stripe payment setup. Online giving will be available soon.</p></div><p id="donation-status" role="status" aria-live="polite"></p>
 <button type="submit" id="donation-continue" disabled>Continue to secure checkout</button>
 </form></section>
 <aside class="panel donation-panel"><h2>Where Your Money Goes</h2><p>Support for the chapter and its members.</p>
@@ -361,9 +362,17 @@ import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2
 const db=createClient('https://tzrmtdwsspobcbucwtrj.supabase.co','sb_publishable_57LLRCD8y-LWGQ4yVTL7bg__HF20OFF');
 const $=id=>document.getElementById(id);let current=null,members=[],isAdmin=false,adminPermissions=new Set();const permissionKeys=['invite','requests','brothers','newsletter','news','businesses','sitepermissions','activity','alumni'];function canAdmin(k){return isAdmin||adminPermissions.has(k)||(k==='businesses'&&adminPermissions.has('brothers'))}
 function msg(t){const box=$('message');box.textContent=t||'';box.hidden=!t;if(t){clearTimeout(msg.timeout);msg.timeout=setTimeout(()=>{box.hidden=true;box.textContent=''},4500)}}function elem(tag,text){const e=document.createElement(tag);e.textContent=text??'';return e}function clear(t,text){t.replaceChildren(elem('p',text))}function safeLink(url){try{const u=new URL(url);return u.protocol==='https:'?u.href:null}catch{return null}}
-let donationMode='test', donationCheckoutReady=false, donationRequestId=null, donationPoll=null;
+// Member donations open only a verified live checkout. Backend setup is separate.
+const donationMode='live';
+let donationCheckoutReady=false, donationRequestId=null, donationPoll=null, donationSubmitting=false;
 const donationStatusLabels={pending:'Confirming payment',paid:'Paid',failed:'Payment failed',expired:'Checkout expired',partially_refunded:'Partially refunded',refunded:'Refunded'};
 function donationMessage(text){$('donation-status').textContent=text;}
+function canUseDonationCheckout(){return current?.approved===true&&!current.rejected&&!current.deactivated_at&&current.member_type==='graduate';}
+function validateDonationAmount(value){
+ const amount=String(value??'').trim();
+ if(!/^(0|[1-9]\d*)(?:\.\d{1,2})?$/.test(amount)||Number(amount)<1||Number(amount)>100000)throw Error('Enter an amount from $1 to $100,000 using at most two decimal places.');
+ return amount;
+}
 async function donationFunction(body){
  const {data,error}=await db.functions.invoke('create-donation-checkout',{body});
  if(error){let detail;try{detail=await error.context?.json()}catch{}throw Error(detail?.error||'Unable to reach secure checkout. Please try again.');}
@@ -371,54 +380,63 @@ async function donationFunction(body){
  return data;
 }
 async function loadDonationHistory(){
- const area=$('donation-history');area.replaceChildren();
- const {data,error}=await db.from('stripe_donations').select('id,amount_cents,status,created_at,refunded_cents,livemode').eq('member_id',current.user_id).eq('livemode',donationMode==='live').order('created_at',{ascending:false}).limit(5);
+ const area=$('donation-history');area.replaceChildren();if(!canUseDonationCheckout())return;
+ const {data,error}=await db.from('stripe_donations').select('id,amount_cents,status,created_at,refunded_cents,livemode').eq('member_id',current.user_id).eq('livemode',true).order('created_at',{ascending:false}).limit(5);
  if(error){clear(area,'Donation history is temporarily unavailable.');return;}
- if(!data?.length){clear(area,'Your donations will appear here.');return;}
- for(const donation of data){const row=elem('div');row.className='donation-history-row';row.append(elem('strong',new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(donation.amount_cents/100)),elem('span',(donationStatusLabels[donation.status]||donation.status)+(donation.livemode?' · ':' · Test · ')+new Date(donation.created_at).toLocaleDateString()));area.append(row);}
+ const donations=(data||[]).filter(d=>d.livemode===true);
+ if(!donations.length){clear(area,'Your online donations will appear here.');return;}
+ for(const donation of donations){const row=elem('div');row.className='donation-history-row';row.append(elem('strong',new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(donation.amount_cents/100)),elem('span',(donationStatusLabels[donation.status]||donation.status)+' · '+new Date(donation.created_at).toLocaleDateString()));area.append(row);}
 }
 async function confirmReturnedDonation(id,attempt=0){
- if(!current||$('page-donate').hidden)return;
- const {data,error}=await db.from('stripe_donations').select('status,amount_cents,livemode').eq('id',id).eq('member_id',current.user_id).maybeSingle();
+ if(!canUseDonationCheckout()||$('page-donate').hidden)return;
+ const {data,error}=await db.from('stripe_donations').select('status,amount_cents,livemode').eq('id',id).eq('member_id',current.user_id).eq('livemode',true).maybeSingle();
  if(error||!data){donationMessage('Unable to confirm this donation yet. Check your donation history or contact chapter leadership.');return;}
+ if(data.livemode!==true){donationMessage('This was a test transaction. No real donation was recorded.');return;}
  if(data.status==='pending'){
-  donationMessage(data.livemode?'Confirming your payment with Stripe…':'Confirming your test payment with Stripe. No real money is collected.');
+  donationMessage('Confirming your payment with Stripe…');
   if(attempt<9)donationPoll=setTimeout(()=>confirmReturnedDonation(id,attempt+1),2000);
-  else donationMessage(data.livemode?'Your payment is still being confirmed. Refresh this page to check again.':'Your test payment is still being confirmed. Refresh this page to check again.');
+  else donationMessage('Your payment is still being confirmed. Refresh this page to check again.');
  }else{
-  donationMessage(data.status==='paid'?(data.livemode?'Thank you. Your donation is confirmed.':'Your test donation is confirmed. No real money was collected.'):(donationStatusLabels[data.status]||'Donation updated')+'.');
+  donationMessage(data.status==='paid'?'Thank you. Your donation is confirmed.':(donationStatusLabels[data.status]||'Donation updated')+'.');
   await loadDonationHistory();
  }
 }
 async function loadDonationState(){
  clearTimeout(donationPoll);donationCheckoutReady=false;
  const button=$('donation-continue');button.disabled=true;
- $('donation-history-panel').hidden=current?.member_type!=='graduate';
- if(!current?.approved||current.rejected||current.member_type!=='graduate'){
+ const notice=$('donation-mode-notice');notice.querySelector('strong').textContent='Online donations coming soon';notice.querySelector('p').textContent='We are finishing our secure Stripe payment setup. Online giving will be available soon.';
+ $('donation-history-panel').hidden=!canUseDonationCheckout();
+ if(!canUseDonationCheckout()){
   donationMessage('Online alumni donations are available to approved graduate brothers.');return;
  }
- donationMessage('Checking secure checkout…');
- try{const status=await donationFunction({action:'status'});donationMode=status?.mode==='live'?'live':'test';donationCheckoutReady=status?.ready===true&&['test','live'].includes(status?.mode);const notice=$('donation-mode-notice');notice.querySelector('strong').textContent=donationMode==='live'?'Secure payment through Stripe':'Test donations only';notice.querySelector('p').textContent=donationMode==='live'?'This is a real, one-time contribution. Your card information is entered securely on Stripe.':'Checkout is in test mode. No real money will be collected.';donationMessage(donationCheckoutReady?'Choose your donation amount, then continue to Stripe.':'Online donations are being configured. Please check back soon.');}
- catch(error){donationMessage(error.message);}
+ donationMessage('Checking online giving availability…');
+ try{
+  const status=await donationFunction({action:'status'});
+  donationCheckoutReady=status?.mode===donationMode&&status?.ready===true;
+  if(donationCheckoutReady){notice.querySelector('strong').textContent='Secure payment through Stripe';notice.querySelector('p').textContent='This is a real, one-time contribution. Your card information is entered securely on Stripe.';}
+  donationMessage(donationCheckoutReady?'Choose your donation amount, then continue to Stripe.':'Online donations are not available yet. Please check back soon.');
+ }catch(error){donationMessage('Online donations are temporarily unavailable. Please check back soon.');}
  button.disabled=!donationCheckoutReady;
  await loadDonationHistory();
  const params=new URLSearchParams(location.search),id=params.get('donation');
- if(params.has('donation_cancelled'))donationMessage('Checkout was cancelled. You can start another donation whenever you are ready.');
+ if(params.has('donation_cancelled'))donationMessage('Checkout was cancelled. Check your donation history before starting again.');
  if(id&&/^[0-9a-f-]{36}$/i.test(id))await confirmReturnedDonation(id);
 }
 $('donation-amount').addEventListener('change',()=>{donationRequestId=null;const custom=$('donation-amount').value==='custom';$('donation-custom-wrap').hidden=!custom;$('donation-custom').required=custom;});
 $('donation-form').addEventListener('input',()=>{donationRequestId=null;$('donation-characters').textContent=String($('donation-purpose').value.length);});
 $('donation-form').addEventListener('submit',async event=>{
- event.preventDefault();if(!donationCheckoutReady)return;
- const button=$('donation-continue');button.disabled=true;button.textContent='Opening secure checkout…';
+ event.preventDefault();if(!donationCheckoutReady||!canUseDonationCheckout()||donationSubmitting)return;
+ const button=$('donation-continue');button.disabled=true;button.textContent='Opening secure checkout…';donationSubmitting=true;
  try{
+  const amount=validateDonationAmount($('donation-amount').value==='custom'?$('donation-custom').value:$('donation-amount').value);
   donationRequestId ||= crypto.randomUUID();
-  const amount=$('donation-amount').value==='custom'?$('donation-custom').value:$('donation-amount').value;
   const result=await donationFunction({amount,purpose:$('donation-purpose').value,request_id:donationRequestId,expected_mode:donationMode});
-  if(result?.mode!==donationMode)throw Error('Payment mode changed. Refresh this page before continuing.');
-  const checkout=new URL(result?.url);if(checkout.origin!=='https://checkout.stripe.com')throw Error('Secure checkout is unavailable. Try again later.');
+  if(result?.mode!==donationMode){donationCheckoutReady=false;throw Error('Online giving availability changed. Refresh this page before continuing.');}
+  let checkout;try{checkout=new URL(result?.url);}catch{throw Error('Secure checkout is unavailable. Try again later.');}
+  if(checkout.origin!=='https://checkout.stripe.com'||checkout.username||checkout.password)throw Error('Secure checkout is unavailable. Try again later.');
   location.assign(checkout.href);
- }catch(error){donationMessage(error.message);button.disabled=!donationCheckoutReady;button.textContent='Continue to secure checkout';}
+ }catch(error){donationMessage(error.message);}
+ finally{donationSubmitting=false;button.disabled=!donationCheckoutReady;button.textContent='Continue to secure checkout';}
 });
 
 
