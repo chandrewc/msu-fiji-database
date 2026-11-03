@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import vm from 'node:vm';
-import { parseDonation, checkoutParameters, isTestKey } from '../functions/_shared/donations.ts';
+import { parseDonation, checkoutParameters, isTestKey, donationConfig } from '../functions/_shared/donations.ts';
 
 const id='310f2c02-6386-4d28-8b15-6af93763f855';
 const memberId='c6006951-8894-46f1-a241-6b1552147315';
@@ -31,11 +31,11 @@ async function loadHandler(file,overrides={}){
   let handler;const calls=[];
   const donation={id,member_id:memberId,amount_cents:2500,currency:'usd',livemode:false};
   class FakeStripe{
-    constructor(){this.webhooks={constructEventAsync:async()=>{if(overrides.badSignature)throw Error('Bad signature');return overrides.event;}};this.checkout={sessions:{list:async()=>({data:[{id:'cs_test_fixture',metadata:{donation_id:id,member_id:memberId}}]})}};}
+    constructor(){this.webhooks={constructEventAsync:async(payload,signature,secret)=>{if(overrides.validSecret&&secret!==overrides.validSecret)throw Error('Wrong signing secret');if(overrides.badSignature)throw Error('Bad signature');return overrides.event;}};this.checkout={sessions:{list:async()=>({data:[{id:'cs_test_fixture',metadata:{donation_id:id,member_id:memberId}}]})}};}
     static createSubtleCryptoProvider(){return {};}
   }
   const db={from:()=>({select(){return this;},eq(){return this;},maybeSingle:async()=>({data:donation,error:null})}),rpc:async(name,args)=>{calls.push({name,args});return {data:'processed',error:null};}};
-  const context={Request,Response,Set,Error,Stripe:FakeStripe,createClient:()=>db,isTestKey,Deno:{env:{get:name=>({STRIPE_DONATIONS_TEST_KEY:'sk_test_fixture',STRIPE_DONATIONS_TEST_WEBHOOK_SECRET:'whsec_fixture',SUPABASE_URL:'https://example.test',SUPABASE_SERVICE_ROLE_KEY:'fixture'})[name]},serve:fn=>{handler=fn;}}};
+  const context={Request,Response,Set,Error,Stripe:FakeStripe,createClient:()=>db,isTestKey,donationConfig,Deno:{env:{get:name=>({STRIPE_DONATIONS_TEST_KEY:'sk_test_fixture',STRIPE_DONATIONS_TEST_WEBHOOK_SECRET:'whsec_fixture',SUPABASE_URL:'https://example.test',SUPABASE_SERVICE_ROLE_KEY:'fixture',...overrides.env})[name]},serve:fn=>{handler=fn;}}};
   vm.createContext(context);
   const source=(await fs.readFile(new URL(file,import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   vm.runInContext(source,context);
@@ -59,4 +59,16 @@ test('webhook rejects mismatched totals and live events',async()=>{
 });
 test('refund resolves its Checkout session even when it arrives before completion',async()=>{
  const {handler,calls}=await loadHandler('../functions/stripe-donation-webhook/index.ts',{event:{id:'evt_refund',type:'charge.refunded',livemode:false,data:{object:{payment_intent:'pi_test_fixture',amount:2500,amount_refunded:2500,currency:'usd',livemode:false}}}});assert.equal((await handler(request())).status,200);assert.equal(calls[0].args.p_session_id,'cs_test_fixture');assert.equal(calls[0].args.p_status,'refunded');
+});
+
+test('live events require the live signature and a matching live ledger record',async()=>{
+ const event={id:'evt_live_fixture',type:'checkout.session.completed',livemode:true,data:{object:{...session(),livemode:true}}};
+ const options={event,validSecret:'whsec_live_fixture',env:{STRIPE_DONATIONS_LIVE_KEY:'rk_live_fixture',STRIPE_DONATIONS_LIVE_WEBHOOK_SECRET:'whsec_live_fixture',STRIPE_DONATIONS_LIVE_ACCOUNT_ID:'acct_1UVhQu0LKcs9BAsZ'}};
+ const f=await loadHandler('../functions/stripe-donation-webhook/index.ts',options);f.donation.livemode=true;assert.equal((await f.handler(request())).status,200);assert.equal(f.calls[0].args.p_status,'paid');
+ const wrong=await loadHandler('../functions/stripe-donation-webhook/index.ts',options);assert.equal((await wrong.handler(request())).status,400);assert.equal(wrong.calls.length,0);
+ const cross=await loadHandler('../functions/stripe-donation-webhook/index.ts',{...options,validSecret:'whsec_fixture'});cross.donation.livemode=true;assert.equal((await cross.handler(request())).status,400);assert.equal(cross.calls.length,0);
+});
+test('public Giving still processes sandbox events while live credentials are configured',async()=>{
+ const event={id:'evt_guest_fixture',type:'checkout.session.completed',livemode:false,data:{object:{...session(),metadata:{donation_id:id,member_id:'public',fund:'parents'}}}};
+ const f=await loadHandler('../functions/stripe-donation-webhook/index.ts',{event,env:{STRIPE_DONATIONS_LIVE_KEY:'rk_live_fixture',STRIPE_DONATIONS_LIVE_WEBHOOK_SECRET:'whsec_live_fixture',STRIPE_DONATIONS_LIVE_ACCOUNT_ID:'acct_1UVhQu0LKcs9BAsZ'}});f.donation.member_id=null;f.donation.fund='parents';assert.equal((await f.handler(request())).status,200);assert.equal(f.calls[0].args.p_status,'paid');
 });

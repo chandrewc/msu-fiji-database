@@ -31,3 +31,20 @@ export function checkoutParameters(donation, memberId) {
 export function isTestKey(key) {
   return /^(sk|rk)_test_/.test(key || '');
 }
+
+
+export function donationConfig(env, mode = env('STRIPE_DONATIONS_MODE') || 'test') {
+  const livemode = mode === 'live';
+  const key = env(livemode ? 'STRIPE_DONATIONS_LIVE_KEY' : 'STRIPE_DONATIONS_TEST_KEY');
+  const secret = env(livemode ? 'STRIPE_DONATIONS_LIVE_WEBHOOK_SECRET' : 'STRIPE_DONATIONS_TEST_WEBHOOK_SECRET');
+  const accountId = env('STRIPE_DONATIONS_LIVE_ACCOUNT_ID');
+  const validKey = livemode ? /^(sk|rk)_live_/.test(key || '') : isTestKey(key);
+  const ready = ['test', 'live'].includes(mode) && validKey && !!secret && (!livemode || accountId === 'acct_1UVhQu0LKcs9BAsZ');
+  return { mode, livemode, key, secret, accountId, ready };
+}
+export async function liveAccountReady(stripe, config) {
+  if (!config.ready) return false;
+  if (!config.livemode) return true;
+  const account = await stripe.accounts.retrieve();
+  return account.id === config.accountId && account.charges_enabled === true;
+}
