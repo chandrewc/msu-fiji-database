@@ -11,6 +11,45 @@ Deno.serve(async (req) => {
   if (origin && !ORIGINS.has(origin)) return reply({ error: 'Origin not allowed.' }, 403);
   try {
     const auth = req.headers.get('authorization') || '';
+    let input;
+    try { input = await req.json(); } catch { return reply({ error: 'Invalid donation request.' }, 400); }
+    // Project operators can validate configuration without impersonating a graduate
+    // or exposing secrets. This branch cannot create a Checkout Session or payment.
+    if (input?.action === 'configuration') {
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      let secretKeys = [];
+      try { secretKeys = Object.values(JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}')).filter(value => typeof value === 'string' && value.startsWith('sb_secret_')); } catch { /* Missing new-style keys fail closed. */ }
+      const operator = (serviceKey && auth === 'Bearer ' + serviceKey) || secretKeys.includes(req.headers.get('apikey'));
+      if (!operator) return reply({ error: 'Project operator access required.' }, 403);
+      const config = donationConfig(name => Deno.env.get(name), 'live');
+      const result = { mode: Deno.env.get('STRIPE_DONATIONS_MODE') || 'test', key_configured: /^(sk|rk)_live_/.test(config.key || ''), webhook_configured: !!config.secret, account_configured: config.accountId === 'acct_1UVhQu0LKcs9BAsZ', account_access: false, account_matches: false, charges_enabled: false, payouts_enabled: false, signed_webhook_verified: false, checkout_verified: false };
+      if (!result.key_configured) return reply(result);
+      const client = new Stripe(config.key, { apiVersion: '2026-09-30.endive', maxNetworkRetries: 2 });
+      try {
+        const account = await client.accounts.retrieve();
+        result.account_access = true; result.account_matches = account.id === 'acct_1UVhQu0LKcs9BAsZ';
+        result.charges_enabled = account.charges_enabled === true; result.payouts_enabled = account.payouts_enabled === true;
+      } catch { return reply(result); }
+      if (config.ready && result.account_matches && input.verify_webhook === true) {
+        const payload = JSON.stringify({ id: 'evt_configuration_' + crypto.randomUUID(), type: 'checkout.session.completed', livemode: true, data: { object: { livemode: true, metadata: {} } } });
+        const timestamp = Math.floor(Date.now() / 1000);
+        const encoder = new TextEncoder();
+        const signingKey = await crypto.subtle.importKey('raw', encoder.encode(config.secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+        const digest = await crypto.subtle.sign('HMAC', signingKey, encoder.encode(timestamp + '.' + payload));
+        const signature = Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('');
+        const response = await fetch(Deno.env.get('SUPABASE_URL') + '/functions/v1/stripe-donation-webhook', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Stripe-Signature': 't=' + timestamp + ',v1=' + signature }, body: payload });
+        result.signed_webhook_verified = response.status === 200 && await response.text() === 'Ignored';
+      }
+      if (config.ready && result.account_matches && result.charges_enabled && input.verify_checkout === true) {
+        try {
+          const session = await client.checkout.sessions.create({ mode: 'payment', submit_type: 'donate', integration_identifier: 'sigma_mu_configuration_zqvmkpta', line_items: [{ price_data: { currency: 'usd', unit_amount: 100, product_data: { name: 'Configuration verification - do not pay' } }, quantity: 1 }], metadata: { configuration_check: 'true' }, success_url: NETWORK_ORIGIN + '/#donate', cancel_url: NETWORK_ORIGIN + '/#donate' });
+          // No URL is returned or visited, and no donor or ledger record is created.
+          const expired = await client.checkout.sessions.expire(session.id);
+          result.checkout_verified = session.livemode === true && session.amount_total === 100 && session.currency === 'usd' && expired.status === 'expired';
+        } catch { result.checkout_verified = false; }
+      }
+      return reply(result);
+    }
     if (!auth.startsWith('Bearer ')) return reply({ error: 'Sign in to continue.' }, 401);
     const db = createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false, autoRefreshToken: false } });
     const { data: { user }, error: authError } = await db.auth.getUser(auth.slice(7));
@@ -21,8 +60,6 @@ Deno.serve(async (req) => {
     const stripe = config.ready ? new Stripe(config.key, { apiVersion: '2026-09-30.endive', maxNetworkRetries: 2 }) : null;
     let ready = false;
     try { ready = !!stripe && await liveAccountReady(stripe, config); } catch { ready = false; }
-    let input;
-    try { input = await req.json(); } catch { return reply({ error: 'Invalid donation request.' }, 400); }
     if (input?.action === 'status') return reply({ ready, mode: config.mode });
     if ((input?.expected_mode && input.expected_mode !== config.mode) || (config.livemode && input?.expected_mode !== 'live')) return reply({ error: 'Payment mode changed. Refresh the page before continuing.' }, 409);
     if (!ready) return reply({ error: 'Online donations are being configured. Please try again later.' }, 503);

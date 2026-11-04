@@ -1,3 +1,5 @@
+> Activated November 3, 2026: Brother Network donations use live Stripe account `acct_1UVhQu0LKcs9BAsZ`. Public Giving stays in test mode. Live webhook: `we_1UXsU00LKcs9BAsZX9zXNrUO`. Secrets are stored only in Supabase. Account identity, payments/payouts enabled, and signed webhook delivery were verified without charging a card.
+
 # Brother Network live Stripe donations
 
 Scope: one-time USD donations by approved graduate brothers in `brothers.msufiji.com`. Public Giving remains test-only. No recurring billing, dues collection, tax, saved-card charging, or automatic live charges are added.
@@ -27,3 +29,9 @@ Real online gifts remain in `stripe_donations`, separately from manually entered
 ## Rollback
 
 Set `STRIPE_DONATIONS_MODE=test`. Do not delete live keys or live webhook configuration while real events or refunds may still arrive. The webhook intentionally keeps processing both independently configured environments. Do not drop live history or relabel historical gifts as test transactions.
+
+## Operator verification
+
+The existing checkout endpoint accepts `{ "action": "configuration", "verify_webhook": true }` only with the project's existing service-role Bearer credential or a matching current Supabase server secret key. It returns configuration booleans, never credentials. Member tokens and publishable keys cannot use it. The signed probe has no donation metadata and cannot create a ledger entry or report a gift paid.
+
+Adding `"verify_checkout": true` also creates a $1 live Checkout Session and immediately expires it. It never returns/opens the checkout URL, submits a card, creates a donor record, or attempts a charge. Use sparingly: Stripe may retain the named verification product/price in its catalog. This verifies that the restricted key can create and expire Checkout Sessions.
