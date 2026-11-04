@@ -49,11 +49,11 @@ Deno.serve(async (req) => {
       if (!found.data) throw Error('Donation not found');
       if (found.data.id !== object.metadata.donation_id || (found.data.member_id ?? 'public') !== object.metadata.member_id || (!found.data.member_id && found.data.fund !== object.metadata.fund) || found.data.amount_cents !== object.amount_total || found.data.currency !== object.currency || found.data.livemode !== object.livemode || found.data.livemode !== signedMode) return new Response('Donation mismatch', { status: 400 });
     }
-    if (signedMode && (!event.data.object.metadata?.member_id || event.data.object.metadata.member_id === 'public') && event.type !== 'charge.refunded') return new Response('Live gifts require a member', { status: 400 });
     const processed = await db.rpc('record_stripe_donation_event', { p_event_id: event.id, p_session_id: sessionId, p_payment_intent_id: paymentIntent || null, p_status: status, p_refunded_cents: refunded });
     if (processed.error) throw processed.error;
     return new Response('OK', { status: 200 });
   } catch { return new Response('Event processing failed; retry delivery', { status: 500 }); }
 });
+
 
 

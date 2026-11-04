@@ -48,6 +48,22 @@ Deno.serve(async (req) => {
           result.checkout_verified = session.livemode === true && session.amount_total === 100 && session.currency === 'usd' && expired.status === 'expired';
         } catch { result.checkout_verified = false; }
       }
+      if (config.ready && result.account_matches && result.charges_enabled && input.verify_public_checkout === true) {
+        result.public_checkout_verified = { persistence: false, parents: false };
+        for (const fund of ['persistence', 'parents']) {
+          try {
+            const response = await fetch(Deno.env.get('SUPABASE_URL') + '/functions/v1/create-public-donation-checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: 'sb_publishable_57LLRCD8y-LWGQ4yVTL7bg__HF20OFF' }, body: JSON.stringify({ fund, amount: '1', purpose: 'Public checkout configuration verification (no payment)', request_id: crypto.randomUUID(), expected_mode: 'live' }) });
+            const checkout = await response.json();
+            if (!response.ok || checkout.mode !== 'live') continue;
+            const url = new URL(checkout.url);
+            const sessionId = url.pathname.match(/cs_live_[A-Za-z0-9]+/)?.[0];
+            if (url.origin !== 'https://checkout.stripe.com' || !sessionId) continue;
+            const session = await client.checkout.sessions.retrieve(sessionId);
+            const expired = await client.checkout.sessions.expire(sessionId);
+            result.public_checkout_verified[fund] = session.livemode === true && session.amount_total === 100 && session.currency === 'usd' && session.metadata?.fund === fund && session.metadata?.member_id === 'public' && expired.status === 'expired';
+          } catch { /* Report only verification booleans, never keys or checkout URLs. */ }
+        }
+      }
       return reply(result);
     }
     if (!auth.startsWith('Bearer ')) return reply({ error: 'Sign in to continue.' }, 401);
@@ -88,4 +104,5 @@ Deno.serve(async (req) => {
     return reply({ error: 'Unable to open secure checkout. Please try again later.' }, 502);
   }
 });
+
 
