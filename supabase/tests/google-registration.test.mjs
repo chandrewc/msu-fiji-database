@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import {rea
 const html=await readFile(new URL('../../index.html',import.meta.url),'utf8');
 const source=html.slice(html.indexOf('function showAuthPanel('),html.indexOf('loadGoogleProvider();')+'loadGoogleProvider();'.length);
 function environment({google=true,settingsError=false,oauthError=null}={}){
- const ids=['register-intro','login','signup','show-login','register-with-email','show-signup','back-login','complete-registration','registration-name','registration-email','registration-phone','registration-type','complete-registration-form','registration-status'];
+ const ids=['register-intro','login','signup','show-login','register-with-email','show-signup','back-login','complete-registration','registration-name','registration-sm-year','registration-email','registration-phone','registration-type','complete-registration-form','registration-status'];
  const elements=Object.fromEntries(ids.map(id=>[id,{id,hidden:false,value:'',disabled:false,readOnly:false,textContent:''}]));
  const googleButtons=[{disabled:true},{disabled:true}],providerLabels=[{},{}],signouts=[{},{}],oauthCalls=[],rpcCalls=[],messages=[];
  const doc={querySelectorAll:s=>s==='[data-google-auth]'?googleButtons:s==='[data-google-status]'?providerLabels:signouts};
@@ -20,19 +20,38 @@ test('navigation switches between registration, sign in and email signup',()=>{c
 test('Google OAuth uses a fixed trusted return URL and never requests a password',async()=>{const h=environment();await h.ctx.loadGoogleProvider();await h.ctx.continueWithGoogle();assert.equal(h.oauthCalls[0].provider,'google');assert.equal(h.oauthCalls[0].options.redirectTo,'https://brothers.msufiji.com/');assert.equal('password' in h.oauthCalls[0],false);});
 test('disabled or unavailable provider does not redirect users to a broken Google flow',async()=>{for(const options of [{google:false},{settingsError:true}]){const h=environment(options);await h.ctx.loadGoogleProvider();await h.ctx.continueWithGoogle();assert.equal(h.oauthCalls.length,0);assert.ok(h.googleButtons.every(b=>b.disabled));}});
 test('onboarding prefills provider email and name, automatically assigns a username and has no password',()=>{const h=environment();h.ctx.showRegistrationProfile({email:'brother@example.com',user_metadata:{full_name:'Verified Brother'}},{full_name:'Verified Brother',username:'pending_00000000000000000000000000000000'});assert.equal(h.elements['registration-email'].value,'brother@example.com');assert.equal(h.elements['registration-email'].readOnly,true);assert.equal(h.elements['registration-name'].value,'Verified Brother');assert.ok(!html.slice(html.indexOf('id="complete-registration"'),html.indexOf('id="set-password"')).includes('type="password"'));});
-test('profile submission sends only permitted fields without approval or role',async()=>{const h=environment();h.elements['registration-name'].value='Brother Name';h.elements['registration-phone'].value='6625550123';h.elements['registration-email'].value='brother@example.com';h.elements['registration-type'].value='graduate';const button={disabled:false};await h.elements['complete-registration-form'].onsubmit({preventDefault(){},target:{querySelector:()=>button}});assert.equal(h.rpcCalls[0].name,'complete_brother_registration');assert.deepEqual(Object.keys(h.rpcCalls[0].args).sort(),['p_email','p_full_name','p_member_type','p_phone','p_username']);assert.equal(h.rpcCalls[0].args.p_username,null);assert.equal(button.disabled,false);});
+test('profile submission sends only permitted fields without approval or role',async()=>{const h=environment();h.elements['registration-name'].value='Brother Name';h.elements['registration-phone'].value='6625550123';h.elements['registration-email'].value='brother@example.com';h.elements['registration-type'].value='graduate';h.elements['registration-sm-year'].value='2030';const button={disabled:false};await h.elements['complete-registration-form'].onsubmit({preventDefault(){},target:{querySelector:()=>button}});assert.equal(h.rpcCalls[0].name,'complete_brother_registration');assert.deepEqual(Object.keys(h.rpcCalls[0].args).sort(),['p_email','p_full_name','p_member_type','p_phone','p_sm_year','p_username']);assert.equal(h.rpcCalls[0].args.p_username,null);assert.equal(h.rpcCalls[0].args.p_sm_year,'2030');assert.equal(button.disabled,false);});
 test('existing users and password recovery retain their independent routes',()=>{assert.ok(html.includes("if(passwordSetup){"));assert.ok(html.includes("me.registration_complete===false&&!me.rejected"));assert.ok(html.includes(".eq('registration_complete',true)"));assert.ok(html.includes("db.auth.signInWithPassword"));});
 
 test('email signup submits a full name without a username field',async()=>{
- const elements=Object.fromEntries(['signupform','signup-name','signup-phone','signup-email','signup-password','signup-type'].map(id=>[id,{value:''}]));
- elements['signup-name'].value='John Smith';elements['signup-phone'].value='6625550123';elements['signup-email'].value='john@example.invalid';elements['signup-password'].value='temporary test value';elements['signup-type'].value='active';
+ const elements=Object.fromEntries(['signupform','signup-name','signup-phone','signup-email','signup-password','signup-type','signup-sm-year'].map(id=>[id,{value:''}]));
+ elements['signup-name'].value='John Smith';elements['signup-phone'].value='6625550123';elements['signup-email'].value='john@example.invalid';elements['signup-password'].value='temporary test value';elements['signup-type'].value='active';elements['signup-sm-year'].value='2027';
  const calls=[];
- const context={$:id=>elements[id],location:{origin:'https://brothers.msufiji.com',pathname:'/'},validPhone:()=>true,formatPhone:p=>p,msg(){},showAuthPanel(){},db:{auth:{signUp:async options=>{calls.push(options);return {error:null}}}}};
+ const context={$:id=>elements[id],location:{origin:'https://brothers.msufiji.com',pathname:'/'},validPhone:()=>true,validRegistrationSmYear:value=>/^[0-9]{4}$/.test(value)&&Number(value)>=1900&&Number(value)<=2200,formatPhone:p=>p,msg(){},showAuthPanel(){},db:{auth:{signUp:async options=>{calls.push(options);return {error:null}}}}};
  vm.createContext(context);
  const signup=html.slice(html.indexOf("$('signupform').onsubmit="),html.indexOf("$('loginform').onsubmit="));
  vm.runInContext(signup,context);
  const button={disabled:false};await elements.signupform.onsubmit({preventDefault(){},target:{querySelector:()=>button}});
  assert.equal(calls[0].options.data.full_name,'John Smith');
+ assert.equal(calls[0].options.data.requested_sm_year,'2027');
  assert.equal('requested_username' in calls[0].options.data,false);
  assert.equal(button.disabled,false);
+});
+
+test('both registration forms require a four-digit Sigma Mu year',()=>{
+ for(const prefix of ['signup','registration']){
+  assert.match(html,new RegExp('id="'+prefix+'-sm-year"[^>]*required'));
+ }
+ const h=environment();
+ for(const value of ['', '30', '2030.5', '1899', '2201', 'abcd'])assert.equal(h.ctx.validRegistrationSmYear(value),false);
+ for(const value of ['1982','2027','2030'])assert.equal(h.ctx.validRegistrationSmYear(value),true);
+});
+test('Google profile completion blocks missing or invalid year before sending a request',async()=>{
+ const h=environment();h.elements['registration-phone'].value='6625550123';
+ const button={disabled:false};
+ for(const value of ['', '30', '2030.5']){
+  h.elements['registration-sm-year'].value=value;
+  await h.elements['complete-registration-form'].onsubmit({preventDefault(){},target:{querySelector:()=>button}});
+  assert.equal(h.rpcCalls.length,0);assert.match(h.elements['registration-status'].textContent,/Sigma Mu year/);
+ }
 });

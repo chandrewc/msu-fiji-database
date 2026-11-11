@@ -18,7 +18,7 @@ begin
  perform set_config('request.jwt.claim.sub','',true);
  foreach account_id in array array[super_id,admin_id,delegate_id,target_id,ordinary_id,pending_id] loop
   insert into auth.users(id,email,raw_app_meta_data,raw_user_meta_data)
-  values(account_id,replace(account_id::text,'-','')||'@example.invalid','{"provider":"email"}',jsonb_build_object('requested_username','test_'||replace(account_id::text,'-',''),'full_name','Temporary access test'));
+  values(account_id,replace(account_id::text,'-','')||'@example.invalid','{"provider":"email"}',jsonb_build_object('requested_sm_year','2030','requested_username','test_'||replace(account_id::text,'-',''),'full_name','Temporary access test'));
  end loop;
  update public.members set approved=true where user_id=any(array[super_id,admin_id,delegate_id,target_id,ordinary_id]);
  update public.members set role='super_admin' where user_id=super_id;
