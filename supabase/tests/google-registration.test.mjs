@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import {rea
 const html=await readFile(new URL('../../index.html',import.meta.url),'utf8');
 const source=html.slice(html.indexOf('function showAuthPanel('),html.indexOf('loadGoogleProvider();')+'loadGoogleProvider();'.length);
 function environment({google=true,settingsError=false,oauthError=null}={}){
- const ids=['register-intro','login','signup','show-login','register-with-email','show-signup','back-login','complete-registration','registration-name','registration-username','registration-email','registration-phone','registration-type','complete-registration-form','registration-status'];
+ const ids=['register-intro','login','signup','show-login','register-with-email','show-signup','back-login','complete-registration','registration-name','registration-email','registration-phone','registration-type','complete-registration-form','registration-status'];
  const elements=Object.fromEntries(ids.map(id=>[id,{id,hidden:false,value:'',disabled:false,readOnly:false,textContent:''}]));
  const googleButtons=[{disabled:true},{disabled:true}],providerLabels=[{},{}],signouts=[{},{}],oauthCalls=[],rpcCalls=[],messages=[];
  const doc={querySelectorAll:s=>s==='[data-google-auth]'?googleButtons:s==='[data-google-status]'?providerLabels:signouts};
@@ -14,10 +14,25 @@ test('registration is the default visible panel; sign-in and email forms are sec
  assert.match(html,/<section class="panel auth-card" id="login" hidden>/);
  assert.match(html,/<section class="panel auth-card" id="signup" hidden>/);
  assert.ok(!html.includes('data-apple-auth'));
+ assert.doesNotMatch(html,/id="(?:signup|registration)-username"/);
 });
 test('navigation switches between registration, sign in and email signup',()=>{const h=environment();h.elements['show-login'].onclick();assert.equal(h.elements.login.hidden,false);assert.equal(h.elements['register-intro'].hidden,true);h.elements['register-with-email'].onclick();assert.equal(h.elements.signup.hidden,false);h.elements['back-login'].onclick();assert.equal(h.elements['register-intro'].hidden,false);});
 test('Google OAuth uses a fixed trusted return URL and never requests a password',async()=>{const h=environment();await h.ctx.loadGoogleProvider();await h.ctx.continueWithGoogle();assert.equal(h.oauthCalls[0].provider,'google');assert.equal(h.oauthCalls[0].options.redirectTo,'https://brothers.msufiji.com/');assert.equal('password' in h.oauthCalls[0],false);});
 test('disabled or unavailable provider does not redirect users to a broken Google flow',async()=>{for(const options of [{google:false},{settingsError:true}]){const h=environment(options);await h.ctx.loadGoogleProvider();await h.ctx.continueWithGoogle();assert.equal(h.oauthCalls.length,0);assert.ok(h.googleButtons.every(b=>b.disabled));}});
-test('onboarding prefills provider email and name, hides provisional username and has no password',()=>{const h=environment();h.ctx.showRegistrationProfile({email:'brother@example.com',user_metadata:{full_name:'Verified Brother'}},{full_name:'Verified Brother',username:'pending_00000000000000000000000000000000'});assert.equal(h.elements['registration-email'].value,'brother@example.com');assert.equal(h.elements['registration-email'].readOnly,true);assert.equal(h.elements['registration-name'].value,'Verified Brother');assert.equal(h.elements['registration-username'].value,'');assert.ok(!html.slice(html.indexOf('id="complete-registration"'),html.indexOf('id="set-password"')).includes('type="password"'));});
-test('profile submission sends only permitted fields without approval or role',async()=>{const h=environment();h.elements['registration-name'].value='Brother Name';h.elements['registration-username'].value='BROTHER_NAME';h.elements['registration-phone'].value='6625550123';h.elements['registration-email'].value='brother@example.com';h.elements['registration-type'].value='graduate';const button={disabled:false};await h.elements['complete-registration-form'].onsubmit({preventDefault(){},target:{querySelector:()=>button}});assert.equal(h.rpcCalls[0].name,'complete_brother_registration');assert.deepEqual(Object.keys(h.rpcCalls[0].args).sort(),['p_email','p_full_name','p_member_type','p_phone','p_username']);assert.equal(button.disabled,false);});
+test('onboarding prefills provider email and name, automatically assigns a username and has no password',()=>{const h=environment();h.ctx.showRegistrationProfile({email:'brother@example.com',user_metadata:{full_name:'Verified Brother'}},{full_name:'Verified Brother',username:'pending_00000000000000000000000000000000'});assert.equal(h.elements['registration-email'].value,'brother@example.com');assert.equal(h.elements['registration-email'].readOnly,true);assert.equal(h.elements['registration-name'].value,'Verified Brother');assert.ok(!html.slice(html.indexOf('id="complete-registration"'),html.indexOf('id="set-password"')).includes('type="password"'));});
+test('profile submission sends only permitted fields without approval or role',async()=>{const h=environment();h.elements['registration-name'].value='Brother Name';h.elements['registration-phone'].value='6625550123';h.elements['registration-email'].value='brother@example.com';h.elements['registration-type'].value='graduate';const button={disabled:false};await h.elements['complete-registration-form'].onsubmit({preventDefault(){},target:{querySelector:()=>button}});assert.equal(h.rpcCalls[0].name,'complete_brother_registration');assert.deepEqual(Object.keys(h.rpcCalls[0].args).sort(),['p_email','p_full_name','p_member_type','p_phone','p_username']);assert.equal(h.rpcCalls[0].args.p_username,null);assert.equal(button.disabled,false);});
 test('existing users and password recovery retain their independent routes',()=>{assert.ok(html.includes("if(passwordSetup){"));assert.ok(html.includes("me.registration_complete===false&&!me.rejected"));assert.ok(html.includes(".eq('registration_complete',true)"));assert.ok(html.includes("db.auth.signInWithPassword"));});
+
+test('email signup submits a full name without a username field',async()=>{
+ const elements=Object.fromEntries(['signupform','signup-name','signup-phone','signup-email','signup-password','signup-type'].map(id=>[id,{value:''}]));
+ elements['signup-name'].value='John Smith';elements['signup-phone'].value='6625550123';elements['signup-email'].value='john@example.invalid';elements['signup-password'].value='temporary test value';elements['signup-type'].value='active';
+ const calls=[];
+ const context={$:id=>elements[id],location:{origin:'https://brothers.msufiji.com',pathname:'/'},validPhone:()=>true,formatPhone:p=>p,msg(){},showAuthPanel(){},db:{auth:{signUp:async options=>{calls.push(options);return {error:null}}}}};
+ vm.createContext(context);
+ const signup=html.slice(html.indexOf("$('signupform').onsubmit="),html.indexOf("$('loginform').onsubmit="));
+ vm.runInContext(signup,context);
+ const button={disabled:false};await elements.signupform.onsubmit({preventDefault(){},target:{querySelector:()=>button}});
+ assert.equal(calls[0].options.data.full_name,'John Smith');
+ assert.equal('requested_username' in calls[0].options.data,false);
+ assert.equal(button.disabled,false);
+});
