@@ -64,6 +64,7 @@ label{color:#463c3c;font-weight:700}
 .account-toggle .avatar{width:48px;height:48px}
 .account-menu{border-radius:7px}
 .newsletter-reactions{margin-top:18px;padding-top:14px;border-top:1px solid #e9e1dd}.newsletter-reactions-label{font-size:.88rem;font-weight:600;color:#5d1725;margin:0 0 10px}.newsletter-reaction-buttons{display:flex;flex-wrap:wrap;gap:8px}.newsletter-reaction-button{padding:8px 12px;min-width:62px;font-size:.95rem}.newsletter-reaction-button[aria-pressed="true"]{background:#5d1725;color:#fff;border-color:#5d1725}.newsletter-reaction-status{font-size:.8rem;color:#695b60;margin:8px 0 0}
+.newsletter-reaction-group{display:flex;align-items:center;gap:6px}.newsletter-reaction-view{background:transparent;color:#5d1725;text-decoration:underline;font-size:.78rem;padding:6px;border:0;cursor:pointer}.newsletter-reaction-people{margin-top:12px;padding:12px;background:#f8f4f2;border-radius:8px}.newsletter-reaction-people strong{color:#5d1725}.newsletter-reaction-name-list{margin:8px 0 0;padding-left:20px;line-height:1.8}
 .newsletter-group{margin:30px 0 48px}
 .newsletter-group>h2{border-bottom:1px solid #ded4ce;padding-bottom:15px;margin-bottom:22px;color:#4c2531}
 #current-newsletter .panel{border-left:4px solid #5d1725}
@@ -557,25 +558,47 @@ function openAdminSection(key){const active=Object.hasOwn(adminTitles,key)&&(key
 document.querySelectorAll('[data-admin-section]').forEach(button=>button.addEventListener('click',()=>openAdminSection(button.dataset.adminSection)));
 $('admin-back').addEventListener('click',()=>openAdminSection(null));
 function openPdf(url,title){$('pdf-title').textContent=title;$('pdf-frame').src=url;$('pdf-fallback').href=url;$('pdf-modal').hidden=false;document.body.classList.add('modal-open');$('pdf-close').focus()}function closePdf(){$('pdf-modal').hidden=true;$('pdf-frame').removeAttribute('src');document.body.classList.remove('modal-open')}$('pdf-close').addEventListener('click',closePdf);
-const NEWSLETTER_REACTIONS=[['like','👍'],['love','❤️'],['fire','🔥'],['clap','👏']];
+const NEWSLETTER_REACTIONS=[['like','👍','Like'],['love','❤️','Love'],['fire','🔥','Fire'],['clap','👏','Applaud']];
 async function newsletterReactionPanel(issueId){
  const panel=elem('div');panel.className='newsletter-reactions';
  const label=elem('p','React to this newsletter');label.className='newsletter-reactions-label';panel.append(label);
  const buttons=elem('div');buttons.className='newsletter-reaction-buttons';panel.append(buttons);
+ const people=elem('div');people.className='newsletter-reaction-people';people.hidden=true;panel.append(people);
  const status=elem('p','');status.className='newsletter-reaction-status';status.setAttribute('aria-live','polite');panel.append(status);
- let saving=false;
+ let saving=false,selectedPeople=null;
+ async function showPeople(key,items){
+  if(selectedPeople===key){selectedPeople=null;people.hidden=true;people.replaceChildren();return}
+  selectedPeople=key;people.hidden=false;people.replaceChildren(elem('p','Loading brothers…'));
+  const ids=items.filter(item=>item.reaction===key).map(item=>item.user_id);
+  if(!ids.length){people.replaceChildren(elem('p','No reactions yet.'));return}
+  const {data,error}=await db.from('members').select('user_id,full_name,pledge_class,graduation_year,member_type').in('user_id',ids).eq('approved',true);
+  if(selectedPeople!==key)return;
+  if(error){people.replaceChildren(elem('p','Unable to load names: '+error.message));return}
+  const heading=elem('strong',NEWSLETTER_REACTIONS.find(item=>item[0]===key)?.[2]+' reactions');
+  const list=elem('ul');list.className='newsletter-reaction-name-list';
+  for(const m of (data||[]).sort((a,b)=>a.full_name.localeCompare(b.full_name))){
+   const year=String(m.pledge_class||m.graduation_year||'').match(/([0-9]{2,4})$/);
+   list.append(elem('li',m.full_name+(year?" · ΣΜ '"+year[1].slice(-2):'')));
+  }
+  const hiddenCount=ids.length-(data||[]).length;
+  people.replaceChildren(heading,list);
+  if(hiddenCount>0)people.append(elem('p',hiddenCount+' reaction(s) from profiles currently unavailable in the directory.'));
+ }
  async function reload(){
   const {data,error}=await db.from('newsletter_reactions').select('user_id,reaction').eq('newsletter_id',issueId);
   if(error){status.textContent='Reactions unavailable: '+error.message;return}
   status.textContent='';const counts=Object.fromEntries(NEWSLETTER_REACTIONS.map(([key])=>[key,0]));let mine=null;
   for(const item of data||[]){if(Object.hasOwn(counts,item.reaction))counts[item.reaction]++;if(item.user_id===current?.user_id)mine=item.reaction}
-  buttons.replaceChildren();
-  for(const [key,emoji] of NEWSLETTER_REACTIONS){
-   const b=elem('button',emoji+' '+counts[key]);b.type='button';b.className='secondary newsletter-reaction-button';b.setAttribute('aria-label',(mine===key?'Remove':'Add')+' '+key+' reaction; '+counts[key]+' reactions');b.setAttribute('aria-pressed',String(mine===key));b.disabled=saving;
-   b.onclick=async()=>{if(saving||!current?.user_id)return;saving=true;for(const button of buttons.children)button.disabled=true;status.textContent='Saving reaction…';
+  buttons.replaceChildren();people.hidden=true;people.replaceChildren();selectedPeople=null;
+  for(const [key,emoji,name] of NEWSLETTER_REACTIONS){
+   const group=elem('div');group.className='newsletter-reaction-group';
+   const b=elem('button',emoji+' '+counts[key]);b.type='button';b.className='secondary newsletter-reaction-button';b.setAttribute('aria-label',(mine===key?'Remove':'Add')+' '+name+' reaction');b.setAttribute('aria-pressed',String(mine===key));b.disabled=saving;
+   b.onclick=async()=>{if(saving||!current?.user_id)return;saving=true;for(const button of buttons.querySelectorAll('button'))button.disabled=true;status.textContent='Saving reaction…';
     const result=mine===key?await db.from('newsletter_reactions').delete().eq('newsletter_id',issueId).eq('user_id',current.user_id):await db.from('newsletter_reactions').upsert({newsletter_id:issueId,user_id:current.user_id,reaction:key,updated_at:new Date().toISOString()},{onConflict:'newsletter_id,user_id'});
-    saving=false;if(result.error){status.textContent='Could not save reaction: '+result.error.message;for(const button of buttons.children)button.disabled=false;return}await reload();
-   };buttons.append(b);
+    saving=false;if(result.error){status.textContent='Could not save reaction: '+result.error.message;for(const button of buttons.querySelectorAll('button'))button.disabled=false;return}await reload();
+   };
+   const view=elem('button','See who');view.type='button';view.className='newsletter-reaction-view';view.setAttribute('aria-label','See who reacted '+name);view.onclick=()=>showPeople(key,data||[]);
+   group.append(b,view);buttons.append(group);
   }
  }
  await reload();return panel;
